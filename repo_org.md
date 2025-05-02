@@ -1,10 +1,6 @@
 # apagon_april28
 
-<a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
-    <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
-</a>
-
-Explore the causes and impacts of the Iberian blackout on April 28, 2025
+Explore the causes and impacts of the Iberian blackout on April 28, 2025.
 
 ## Project Organization
 
