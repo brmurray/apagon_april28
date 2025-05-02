@@ -1,0 +1,259 @@
+
+
+```{python}
+import pandas as pd
+import matplotlib.pyplot as plt
+import plotly
+import plotly.graph_objects as go
+import numpy as np
+from datetime import datetime
+import pytz
+from scipy.io import loadmat
+
+# relative paths using pyprojroot (see pvwatts_sandbox/paths.py)
+from apagon_april28.paths import root, data_dir, notebooks_dir
+
+
+
+
+# Cleaning the PMU Data
+# Load the .mat file
+pmu_df_raw = pd.read_csv(data_dir / 'external' /'28042025_Spain and Portugal_UTCtime.csv')
+
+# Clean up column names by removing ":Frequency" suffix
+pmu_df_raw.columns = pmu_df_raw.columns.str.replace(':Frequency', '')
+
+
+# Convert timestamp to datetime with UTC timezone
+pmu_df_raw['time'] = pd.to_datetime(pmu_df_raw['Timestamp'], format='%Y/%m/%d %H:%M:%S.%f', utc=True)
+pmu_df_raw['time'] = pmu_df_raw['time'].dt.tz_convert('Europe/Madrid')
+pmu_df_raw = pmu_df_raw.drop(columns=['Timestamp'])
+pmu_df_raw = pmu_df_raw.set_index('time')
+
+# drop any rows where ES_Malaga is NaN
+pmu_df = pmu_df_raw.dropna(subset=['ES_Malaga'])
+
+
+#target_time = pd.to_datetime('2025-04-28 13:03:00').tz_localize('Europe/Madrid')
+#pmu_df = pmu_df[pmu_df['time'] <= target_time]
+
+
+pmu_colors = {
+    'CH_ZHAW': '#2e8b57',  # sea green
+    'DE_Ostrhauderfehn': '#3cb371',  # medium sea green
+    'ES_Malaga': '#ff3333',  # bright red - stands out
+    'HR_STER': '#00bfff',  # bright blue (deep sky blue)
+    'LV_Daugavpils': '#9370db',  # medium purple
+    'LV_Adazi': '#a379e8'  # similar purple to Daugavpils
+}
+
+pmu_aliases = {
+    'ES_Malaga': 'Spain',
+    'CH_ZHAW': 'Switzerland',
+    'DE_Ostrhauderfehn': 'Germany',
+    'LV_Daugavpils': 'Latvia (Daugavpils)',
+    'LV_Adazi': 'Latvia (Adazi)',
+    'HR_STER': 'Croatia'
+}
+
+
+print("First timestamp: ", pmu_df_raw.index.min())
+print("Last timestamp: ", pmu_df_raw.index.max())
+```
+
+# Prototypes
+```{python}
+def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None):
+    
+    df_to_plot = pmu_df.loc[start_time:end_time]
+    
+    fig = go.Figure()
+
+    for pmu, name in pmu_aliases.items():
+        fig.add_trace(go.Scatter(
+            x=df_to_plot.index,
+            y=df_to_plot[pmu],
+            mode='lines',
+            name=name,
+            line=dict(color=pmu_colors[pmu])
+        ))
+
+    # Mark +/- 200mHz and +/- 800mHz
+    if ymin is None:
+        try:
+            ymin = round(df_to_plot.min().min() * 10 - 1) / 10
+        except:
+            ymin = 49.1
+    if ymax is None:
+        try:
+            ymax = round(df_to_plot.max().max() * 10 + 1) / 10
+        except:
+            ymax = 50.9
+    fig.add_hrect(y0=ymin, y1=49.2, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=ymin, y1=49.8, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=50.2, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=50.8, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+
+    # Note FCR saturation at +/- 200mhz
+    fig.add_annotation(
+        x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
+        y=49.78,
+        text="<i>FCR Saturation</i>",
+        showarrow=False,
+        font=dict(size=12)
+    )
+    # fig.add_annotation(
+    #     x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
+    #     y=50.22,
+    #     text="<i>FCR Saturation</i>",
+    #     showarrow=False,
+    #     font=dict(size=12)
+    # )
+
+    # Update layout
+    fig.update_layout(
+        title=title_text,
+        title_font=dict(size=24),
+        xaxis_title=None,
+        yaxis_title='Frequency [Hz]',
+        yaxis_title_font=dict(size=20),
+        yaxis_range=[ymin, ymax],
+        showlegend=True,
+        legend=dict(
+            font=dict(size=24),
+            orientation='h',
+            yanchor='bottom',
+            y=1.0,
+            xanchor='right',
+            x=1
+        ),
+        xaxis=dict(
+            tickfont=dict(size=20),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray'
+        ),
+        yaxis=dict(
+            tickfont=dict(size=20),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray'
+        ),
+        height = 800,
+        width = 1600,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=50, r=50, t=90, b=60)
+    )
+    
+    return fig
+
+
+```
+
+# Grid Events
+
+## Overview
+```{python}
+# Overview
+overview_t_start = pd.to_datetime('2025-04-28 12:10:00').tz_localize('Europe/Madrid')
+overview_t_end = pd.to_datetime('2025-04-28 12:45:00').tz_localize('Europe/Madrid')# Show the plot
+fig = create_frequency_plot(pmu_df, overview_t_start, overview_t_end, pmu_aliases, "Grid Frequency Measurements Across Europe")
+fig.show()
+fig.write_image(root / "img" / "overview.png", scale=1)
+```
+
+## Early Oscillations
+```{python}
+# First Oscillation
+oscillation1_t_start = pd.to_datetime('2025-04-28 12:10:00').tz_localize('Europe/Madrid')
+oscillation1_t_end = pd.to_datetime('2025-04-28 12:17:30').tz_localize('Europe/Madrid')# Show the plot
+fig = create_frequency_plot(pmu_df, oscillation1_t_start, oscillation1_t_end, pmu_aliases, "Early Oscillations")
+fig.show()
+fig.write_image(root / "img" / "oscillation1.png")
+```
+
+
+## Bigger Oscillations
+```{python}
+# Second Oscillation
+oscillation2_t_start = pd.to_datetime('2025-04-28 12:19:00').tz_localize('Europe/Madrid')
+oscillation2_t_end = pd.to_datetime('2025-04-28 12:22:00').tz_localize('Europe/Madrid')# Show the plot
+fig = create_frequency_plot(pmu_df, oscillation2_t_start, oscillation2_t_end, pmu_aliases, "Bigger Oscillations")
+fig.show()
+fig.write_image(root / "img" / "oscillation2.png")
+```
+
+
+## DFD @ 12:30
+```{python}
+# Second Oscillation
+dfd_t_start = pd.to_datetime('2025-04-28 12:29:10').tz_localize('Europe/Madrid')
+dfd_t_end = pd.to_datetime('2025-04-28 12:30:50').tz_localize('Europe/Madrid')# Show the plot
+fig = create_frequency_plot(pmu_df, dfd_t_start, dfd_t_end, pmu_aliases, "DFD @ 12:30")
+fig.show()
+fig.write_image(root / "img" / "dfd.png")
+```
+
+
+## Separation
+```{python}
+# Second Oscillation
+separation_t_start = pd.to_datetime('2025-04-28 12:32:45').tz_localize('Europe/Madrid')
+separation_t_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')# Show the plot
+fig = create_frequency_plot(pmu_df, separation_t_start, separation_t_end, pmu_aliases, "Separation", ymin=49.75, ymax=50.05)
+fig.show()
+fig.write_image(root / "img" / "separation.png")
+```
+
+
+
+
+# ROCOF
+```{python}
+
+# dt10 = 10e-3
+# dt100 = 100e-3
+
+# dfm = df.copy(deep=True)
+# dfm = dfm[['time_vec', 'ES_Malaga', 'LV_Daugavpils', 'LV_Adazi', 'HR_STER', 'DE_Ostrhauderfehn', 'CH_ZHAW']].drop(dfm[dfm['ES_Malaga'].isna()].index)
+# dfm['rocof_malaga'] = dfm['ES_Malaga'].diff() / dfm['time_vec'].diff().dt.total_seconds()
+# dfm['rocof_lv_daugavpils'] = dfm['LV_Daugavpils'].diff() / dfm['time_vec'].diff().dt.total_seconds()
+# dfm['rocof_lv_adazi'] = dfm['LV_Adazi'].diff() / dfm['time_vec'].diff().dt.total_seconds()
+# dfm['rocof_hr_ster'] = dfm['HR_STER'].diff() / dfm['time_vec'].diff().dt.total_seconds()
+# dfm['rocof_de_ostrhauderfehn'] = dfm['DE_Ostrhauderfehn'].diff() / dfm['time_vec'].diff().dt.total_seconds()
+# dfm['rocof_ch_zha'] = dfm['CH_ZHAW'].diff() / dfm['time_vec'].diff().dt.total_seconds()
+
+# # Create an interactive plot with plotly
+# fig = go.Figure()
+
+# # Plot ROCOF for Malaga
+# mask_rocof = ~dfm['rocof_malaga'].isna()
+# fig.add_trace(go.Scatter(
+#     x=dfm.loc[mask_rocof, 'time_vec'],
+#     y=dfm.loc[mask_rocof, 'rocof_malaga'],
+#     name='ROCOF Malaga',
+#     mode='lines'
+# ))
+# fig.add_trace(go.Scatter(
+#     x=dfm.loc[mask_rocof, 'time_vec'],
+#     y=dfm.loc[mask_rocof, 'rocof_lv_daugavpils'],
+#     name='ROCOF Latvia (Daugavpils)',
+#     mode='lines'
+# ))
+# fig.add_trace(go.Scatter(
+#     x=dfm.loc[mask_rocof, 'time_vec'],
+#     y=dfm.loc[mask_rocof, 'rocof_hr_ster'],
+#     name='ROCOF Croatia',
+#     mode='lines'
+# ))
+# fig.add_trace(go.Scatter(
+#     x=dfm.loc[mask_rocof, 'time_vec'],
+#     y=dfm.loc[mask_rocof, 'rocof_de_ostrhauderfehn'],
+#     name='ROCOF Germany',
+#     mode='lines'
+# ))
+
+
+
+```
