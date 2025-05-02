@@ -1,24 +1,28 @@
 # apagon_april28
 
-> *Last Update: May 1, 2025 @ 1900 CET*
+> *Last Update: May 2, 2025 @ 1215 CEST*
 
 On April 28, 2025, the Iberian penisula suffered the largest and widest power outage in its history. The proximate and contributing causes are still underinvestigation. This repo, sponsored by the [LEMUR Lab](https://lemuruniovi.com/) at [Universidad de Oviedo](https://www.uniovi.es/), is an central collection point for relevant data, publically-sharable data about the event.
 
 
-
 # So what happened?
-See ["Detailed Analysis"](detailed_analysis.md) for more...
+Check out the [reports](reports/) folder for a detailed presentation and ["Detailed Analysis"](detailed_analysis.md) for especially nerdy content.
 
-_Our best timeline_
-- 12:00pm CEST: First oscillations
+_Our best timeline (all times CEST)_
+- 12:00:00 or earlier - Frequency oscillations observed in the Iberian transmission grid
+- 12:19:30.0 - Frequency oscillations significantly worsen for ~3 minutes, then apparently decay around 12:22:00pm
+- 12:32:57.3 - Major rapid frequency dip in Iberian grid is not apparent in other markets. The Iberian grid reovers briefly but frequencies decline across the continent for ~ 15 seconds until...
+- 12:33.16.5 - Fast, irreversible frequency drop starts at 12:33:16.5. Likely some large source tripped and started the cascade of “15GW in 5 seconds”.
 
 
 # What do we _not_ know?
 - The Spanish government insists that a cyberattack is not to blame. LEMUR believes that there are perfectly believable technical reasons for the outage, and thus we have no specific reason to question the government's assertion. Nevertheless, the generally public will not know the cybersecurity details any time soon, if ever.
+- The Spanish government has also ruled out human error and extraordinary meterological conditions as root causes, and we ignore them for the sames reasons as above.
+- Very detailed information about the physical conditions of the grid and market operations will be necessary for a root-cause analysis. We don't have access to that data. Instead, we're pursuing a humble, transparent analysis using whatever public information we can collect.
 
 # What can we infer?
-- The Spanish grid was operating with 54% solar at the time.
-
+- The Spanish grid was operating with a very high ratio of solar energy at the time. Inverter-based resources (solar and batteries but also some flavors of wind and hydropower) have no synchronous interia, so the overall inertia of the Iberian grid was quite low on the morning of April 28.
+- Inter-area frequency oscillations are especially difficult to predict and manage.
 
 
 # What would we like to know?
@@ -27,7 +31,7 @@ Help us tune our models! Here's a wishlist of data:
 - High-resolution (<100ms) frequency measurements from any point on the Iberian or French transmissiong grid
 - Very high resolution (<10ms) measurements of any voltage or current waveform from equipment that was directly connected to the grid before 12:33pm, regardless of connection voltage.
 - Information about behind-the-meter/self-consumption solar PV and battery systems (ratings, location, any time series data)
-- 
+- Data market conditions, especially FFR bids.
 
 # How can you help?
 - Get in touch! lemur_a_uniovi.es
