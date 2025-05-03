@@ -1,0 +1,185 @@
+# Inertia Estimation
+
+
+```{python}
+# set up
+import pandas as pd
+import matplotlib.pyplot as plt
+import plotly
+import plotly.graph_objects as go
+import numpy as np
+from datetime import datetime
+import pytz
+from scipy.io import loadmat
+
+
+# relative paths using pyprojroot (see pvwatts_sandbox/paths.py)
+from apagon_april28.paths import root, data_dir, notebooks_dir, figures_dir
+from apagon_april28.constants import generation_type_colors, generation_type_column_order
+```
+
+# Load generation data
+```{python}
+# Generation data
+path_bzn_es_april28 = data_dir / 'external' / 'es_Actual Generation per Production Type_202504280000-202504290000.csv'
+gen_es_df = pd.read_csv(path_bzn_es_april28)
+gen_es_df['datetime'] = pd.to_datetime(gen_es_df['MTU'].str.split(' - ').str[0], format='%d.%m.%Y %H:%M')
+gen_es_df = gen_es_df.set_index('datetime')
+gen_es_df = gen_es_df.drop(['MTU', 'Area'], axis=1)
+
+# Rename columns by removing " - Actual Aggregated [MW]"
+gen_es_df = gen_es_df.drop('Hydro Pumped Storage - Actual Consumption [MW]', axis=1)
+gen_es_df.columns = gen_es_df.columns.str.replace(' - Actual Aggregated [MW]', '')
+
+# Sort columns by generation_type_column_order
+gen_es_df = gen_es_df[generation_type_column_order]
+# Remove columns with all values below 10 MW
+low_gen_cols = gen_es_df.columns[gen_es_df.max() < 50]
+gen_es_df = gen_es_df.drop(columns=low_gen_cols)
+
+
+# Get the total generation and the percentage of each generation type
+total_gen = gen_es_df.sum(axis=1)
+pct_es_df = gen_es_df.div(total_gen, axis=0)
+
+# Create stacked bar chart
+fig = go.Figure()
+
+# Add traces for each generation type
+for column in gen_es_df.columns:
+    fig.add_trace(
+        go.Bar(
+            name=column,
+            x=gen_es_df.index,
+            y=gen_es_df[column],
+            hovertemplate="%{y:.2f} s<extra></extra>",
+            marker_color=generation_type_colors[column]
+        )
+    )
+
+# Update layout
+fig.update_layout(
+    barmode='stack',
+    title='Hydro ramped down as solar ramped up through the morning of 28th April 2025',
+    xaxis_title=None,
+    yaxis_title='Spain Generation [MW]',
+    yaxis=dict(
+        tickmode='array',
+        tickvals=list(range(5000, int(total_gen.max()) + 5000, 5000))
+    ),
+    hovermode='x unified',
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ),
+    height = 800,
+    width = 1600,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(l=50, r=50, t=90, b=60)
+)
+
+fig.show()
+fig.write_image(figures_dir / "generation_mix_spain_20250428.png")
+
+``` 
+
+# Inertia Estimation
+- inertia constants from entso-e_InertiaRoCoF_2020 ("Inertia and Rate of Change of Frequency (RoCoF)", 16 Dec 2020)
+```{python}
+
+inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
+
+inertia_df = pd.DataFrame(index=pct_es_df.index)
+for col in pct_es_df.columns:
+    h_value = inertia_constants.loc[inertia_constants['generation_type'] == col, 'h_entsoe_sec'].values
+    if len(h_value) > 0:  # Only multiply if we have an inertia constant for this type
+        inertia_df[col] = pct_es_df[col] * h_value[0]
+    else:
+        print(f"No inertia constant for {col}")
+
+# Remove columns with all values below 0.1
+low_inertia_cols = inertia_df.columns[inertia_df.max() < 0.1]
+inertia_df = inertia_df.drop(columns=low_inertia_cols)
+
+
+# Create stacked bar chart
+fig = go.Figure()
+
+# Add traces for each generation type
+for column in inertia_df.columns:
+    fig.add_trace(
+        go.Bar(
+            name=column,
+            x=inertia_df.index,
+            y=inertia_df[column],
+            hovertemplate="%{y:.2f} s<extra></extra>",
+            marker_color=generation_type_colors[column]
+        )
+    )
+# Add horizontal line at y=2 with annotation
+fig.add_hline(
+    y=2, 
+    line_dash="dash", 
+    line_color="red"
+)
+
+fig.add_annotation(
+    text="ENTSO-E Suggested Inertia Lower Bound",
+    x=0.5,
+    y=2.1,
+    xref="paper",
+    yref="y",
+    showarrow=False,
+    font=dict(
+        size=12,
+        color="red"
+    )
+)
+
+
+# Update layout
+fig.update_layout(
+    barmode='stack',
+    title='By 9am on 28th April 2025, Spain System Inertia was already very low',
+    xaxis_title=None,
+    yaxis_title='Inertia Constant [seconds]',
+    hovermode='x unified',
+    yaxis=dict(
+        tickmode='array',
+        tickvals=[0.5, 1, 1.5, 2, 2.5, 3]
+    ),
+
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ),
+    height = 800,
+    width = 1600,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(l=50, r=50, t=90, b=60)
+)
+
+fig.show()
+fig.write_image(figures_dir / "inertia_by_generation_type_20250428.png")
+
+
+```
+
+
+# Inertia in the rest of Europe
+
+```{python}
+
+
+
+```

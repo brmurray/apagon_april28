@@ -1,0 +1,22 @@
+generation_type,variable_renewable,h_entsoe_sec
+Biomass,FALSE,3.3
+Fossil Brown coal/Lignite,FALSE,3.8
+Fossil Coal-derived gas,FALSE,4.2
+Fossil Gas,FALSE,4.2
+Fossil Hard coal,FALSE,4.2
+Fossil Oil,FALSE,4.3
+Fossil Oil shale,FALSE,4.3
+Fossil Peat,FALSE,3.8
+Geothermal,FALSE,3.5
+Hydro Pumped Storage,FALSE,3.5
+Hydro Pumped Storage Consumption,FALSE,3.5
+Hydro Run-of-river and poundage,FALSE,2.7
+Hydro Water Reservoir,FALSE,3.7
+Marine,TRUE,3.8
+Nuclear,FALSE,5.9
+Other,FALSE,3.8
+Other renewable,TRUE,3.5
+Solar,TRUE,0
+Waste,FALSE,3.8
+Wind Offshore,TRUE,0
+Wind Onshore,TRUE,0
