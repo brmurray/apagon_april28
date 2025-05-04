@@ -39,38 +39,70 @@ gen_es_df = gen_es_df[generation_type_column_order]
 # Convert all columns to numeric, set errors to NaN
 gen_es_df = gen_es_df.apply(pd.to_numeric, errors='coerce')
 
-# Write generation data to duckdb
-import duckdb
-
-# Create connection to duckdb database
-con = duckdb.connect('entsoe.db')
-
-# Write dataframe to duckdb table
-con.execute("DROP TABLE IF EXISTS generation")
-con.execute("CREATE TABLE generation AS SELECT * FROM gen_es_df")
-con.close()
-
-
 # Remove columns with all values below 10 MW
 # Find columns where maximum generation is less than 50 MW
 low_gen_cols = gen_es_df.columns[gen_es_df.max() < 50]
 gen_es_df = gen_es_df.drop(columns=low_gen_cols)
 
 
+# Get the total generation and the percentage of each generation type
+total_gen = gen_es_df.sum(axis=1)
+pct_es_df = gen_es_df.div(total_gen, axis=0)
 
 
-######
+``` 
+
+
+
+
+### Add to db
+```{python}
+#gen_es_long = gen_es_df.reset_index().melt(id_vars=['datetime'], var_name='generation_type', value_name='generation')
+# # Write generation data to duckdb
+# import duckdb
+
+# # Create connection to duckdb database
+# con = duckdb.connect('entsoe.db')
+
+# # Write dataframe to duckdb table
+# con.execute("DROP TABLE IF EXISTS generation")
+# con.execute("CREATE TABLE generation AS SELECT * FROM gen_es_df")
+# con.close()
+```
+
+
+
+## Inertia Estimation
+- inertia constants from entso-e_InertiaRoCoF_2020 ("Inertia and Rate of Change of Frequency (RoCoF)", 16 Dec 2020)
+```{python}
+
+inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
+
+inertia_df = pd.DataFrame(index=pct_es_df.index)
+for col in pct_es_df.columns:
+    h_value = inertia_constants.loc[inertia_constants['generation_type'] == col, 'h_entsoe_sec'].values
+    if len(h_value) > 0:  # Only multiply if we have an inertia constant for this type
+        inertia_df[col] = pct_es_df[col] * h_value[0]
+    else:
+        print(f"No inertia constant for {col}")
+
+inertia_df['Total Inertia'] = inertia_df.sum(axis=1)
+
+
+```
+
+
+# Plots
+## Generation by type - April 28
+```{python}
 # Limit to 2025-04-28
-# Remove columns with all values below 10 MW
-# Find columns where maximum generation is less than 50 MW
 gen_es_apr28_df = gen_es_df[gen_es_df.index.date == pd.Timestamp('2025-04-28').date()]
+
+# Find and remove columns where maximum generation is less than 50 MW
 low_gen_cols = gen_es_apr28_df.columns[gen_es_apr28_df.max() < 50]
 gen_es_apr28_df = gen_es_apr28_df.drop(columns=low_gen_cols)
 
 
-# Get the total generation and the percentage of each generation type
-total_gen = gen_es_apr28_df.sum(axis=1)
-pct_es_df = gen_es_apr28_df.div(total_gen, axis=0)
 
 # Create stacked bar chart
 fig = go.Figure()
@@ -115,46 +147,24 @@ fig.update_layout(
 
 fig.show()
 fig.write_image(figures_dir / "generation_mix_spain_20250428.png")
-
-``` 
-
-
-### Add to db
-```{python}
-#gen_es_long = gen_es_df.reset_index().melt(id_vars=['datetime'], var_name='generation_type', value_name='generation')
 ```
 
-
-
-## Inertia Estimation
-- inertia constants from entso-e_InertiaRoCoF_2020 ("Inertia and Rate of Change of Frequency (RoCoF)", 16 Dec 2020)
+## Plot Inertia on April 28
 ```{python}
+inertia_contributor_columns = ['Nuclear', 'Fossil Gas', 'Hydro Water Reservoir', 'Hydro Run-of-river and poundage', 'Hydro Pumped Storage']
 
-inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
-
-inertia_df = pd.DataFrame(index=pct_es_df.index)
-for col in pct_es_df.columns:
-    h_value = inertia_constants.loc[inertia_constants['generation_type'] == col, 'h_entsoe_sec'].values
-    if len(h_value) > 0:  # Only multiply if we have an inertia constant for this type
-        inertia_df[col] = pct_es_df[col] * h_value[0]
-    else:
-        print(f"No inertia constant for {col}")
-
-# Remove columns with all values below 0.1
-low_inertia_cols = inertia_df.columns[inertia_df.max() < 0.1]
-inertia_df = inertia_df.drop(columns=low_inertia_cols)
-
+inertia_apr28_df = inertia_df[inertia_df.index.date == pd.Timestamp('2025-04-28').date()]
 
 # Create stacked bar chart
 fig = go.Figure()
 
 # Add traces for each generation type
-for column in inertia_df.columns:
+for column in inertia_contributor_columns:
     fig.add_trace(
         go.Bar(
             name=column,
-            x=inertia_df.index,
-            y=inertia_df[column],
+            x=inertia_apr28_df.index,
+            y=inertia_apr28_df[column],
             hovertemplate="%{y:.2f} s<extra></extra>",
             marker_color=generation_type_colors[column]
         )
@@ -213,6 +223,123 @@ fig.write_image(figures_dir / "inertia_by_generation_type_20250428.png")
 
 ```
 
+## Inertia for the whole year
+```{python}
+
+inertia_df['hour'] = inertia_df.index.hour
+inertia_df['minute'] = inertia_df.index.minute
+inertia_df['time_of_day'] = inertia_df['hour'] + inertia_df['minute']/60
+inertia_df['date'] = inertia_df.index.date.astype(str)
+
+# Set values below 0.2 to NA
+inertia_df['Total Inertia'] = inertia_df['Total Inertia'].where(inertia_df['Total Inertia'] >= 0.2)
+
+
+# Plot total inertia for the whole year
+fig = go.Figure()
+
+for date in inertia_df['date'].unique():
+    day_data = inertia_df[inertia_df['date'] == date]
+
+    fig.add_trace(
+        go.Scatter(
+            x=day_data['time_of_day'],
+            y=day_data['Total Inertia'],
+            mode='lines',
+            name=date,
+            line=dict(width=0.75, color='grey'),
+            showlegend=False
+        )
+    )
+
+# Add April 28th data
+april28_data = inertia_df[inertia_df['date'] == '2025-04-28']
+fig.add_trace(
+    go.Scatter(
+        x=april28_data['time_of_day'],
+        y=april28_data['Total Inertia'],
+        mode='lines',
+        name='April 28th 2025',
+        line=dict(width=3, color='red'),
+        showlegend=False
+    )
+)
+
+fig.add_annotation(
+    text="April 28th",
+    x=1,
+    y=5.2,  # Just slightly above ymax
+    showarrow=False,
+    font=dict(color="red", size=16)
+)
+
+fig.add_annotation(
+    text="March-April 2025",
+    x=4,
+    y=5.2,  
+    showarrow=False,
+    font=dict(color="grey", size=16)
+)
+
+
+# Add horizontal line at ENTSO-E suggested minimum
+fig.add_hline(y=2, line_width=2, line_dash="dash", line_color="red")
+
+# Add annotation for ENTSO-E line
+fig.add_annotation(
+    text="ENTSO-E Suggested Inertia Lower Bound",
+    x=.05,
+    y=1.8,
+    xref="paper",
+    yref="y", 
+    showarrow=False,
+    font=dict(
+        size=12,
+        color="red"
+    ),
+    bgcolor="white",
+)
+
+# Update layout
+fig.update_layout(
+    title='Spain System Inertia Throughout 2025',
+    xaxis_title='Hour of Day',
+    xaxis=dict(
+        tickmode='array',
+        tickvals=list(range(3, 24, 3)),
+        ticktext=[f"{hour:02d}:00" for hour in range(3, 24, 3)],
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgrey'
+    ),
+    yaxis_title='Inertia Constant [seconds]',
+    yaxis=dict(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgrey'
+    ),
+    hovermode='x unified',
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ),
+
+    height=600,
+    width=1200,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(l=50, r=50, t=90, b=60)
+)
+
+fig.show()
+fig.write_image(figures_dir / "total_inertia_2025.png")
+
+
+```
 
 # Inertia in the rest of Europe
 ```{python}
@@ -223,164 +350,4 @@ fig.write_image(figures_dir / "inertia_by_generation_type_20250428.png")
 
 
 
-# Cross Border Flows
-```{python}
-flows_es_fr_df = pd.read_csv(data_dir / 'external' / 'es_fr_Cross-Border Physical Flow_202501010000-202601010000.csv')
 
-flows_es_fr_df['datetime'] = pd.to_datetime(flows_es_fr_df['Time (CET/CEST)'].str.split(' - ').str[0], format='%d.%m.%Y %H:%M')
-flows_es_fr_df = flows_es_fr_df.set_index('datetime')
-flows_es_fr_df = flows_es_fr_df.drop(['Time (CET/CEST)'], axis=1)
-flows_es_fr_df.columns = flows_es_fr_df.columns.str.replace(' [MW]', '')
-flows_es_fr_df = flows_es_fr_df.apply(pd.to_numeric, errors='coerce')
-
-flows_es_fr_df['es->fr'] = flows_es_fr_df['CTA|ES > CTA|FR'] - flows_es_fr_df['CTA|FR > CTA|ES']    
-
-print(flows_es_fr_df.dtypes)
-
-# ------------------------------------------------------------------------------------------------
-# Plot flows
-fig = go.Figure()
-
-# Add traces for each flow direction
-fig.add_trace(
-    go.Scatter(
-        name='France to Spain',
-        x=flows_es_fr_df.index,
-        y=flows_es_fr_df['es->fr'],
-        mode='lines',
-        line=dict(width=2)
-    )
-)
-
-# Update layout
-fig.update_layout(
-    title='Cross Border Power Flows between Spain and France',
-    xaxis_title='Date',
-    yaxis_title='Power Flow [MW]',
-    hovermode='x unified',
-    showlegend=True,
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.02,
-        xanchor="right",
-        x=1
-    ),
-    height=600,
-    width=1200,
-    plot_bgcolor='white',
-    paper_bgcolor='white',
-    margin=dict(l=50, r=50, t=90, b=60)
-)
-
-#fig.show()
-
-```
-
-
-```{python}
-# ------------------------------------------------------------------------------------------------
-# Create a new dataframe with hour and minute columns
-t_flow_start = pd.to_datetime('2025-03-01 00:00:00')
-t_flow_end = pd.to_datetime('2025-04-28 23:59:59')
-flows_es_fr_df = flows_es_fr_df[flows_es_fr_df.index >= t_flow_start]
-flows_es_fr_df = flows_es_fr_df[flows_es_fr_df.index <= t_flow_end]
-
-
-flows_es_fr_df['hour'] = flows_es_fr_df.index.hour
-flows_es_fr_df['minute'] = flows_es_fr_df.index.minute
-flows_es_fr_df['time_of_day'] = flows_es_fr_df['hour'] + flows_es_fr_df['minute']/60
-flows_es_fr_df['date'] = flows_es_fr_df.index.date.astype(str)
-
-print(flows_es_fr_df.dtypes)
-
-# Create figure
-fig = go.Figure()
-
-# Add a line for each date
-import math
-y_tick_interval = 250
-ymin = y_tick_interval * math.floor((flows_es_fr_df['es->fr'].min() - y_tick_interval) / y_tick_interval)
-ymax = y_tick_interval * math.ceil((flows_es_fr_df['es->fr'].max() + y_tick_interval) / y_tick_interval)
-for date in flows_es_fr_df['date'].unique():
-
-    day_data = flows_es_fr_df[flows_es_fr_df['date'] == date]
-    
-    fig.add_trace(
-        go.Scatter(
-            name=date,
-            x=day_data['time_of_day'],
-            y=day_data['es->fr'],
-            mode='lines',
-            line=dict(width=1, color='grey'),
-        )
-    )
-
-april28_data = flows_es_fr_df[flows_es_fr_df['date'] == '2025-04-28']
-fig.add_trace(
-    go.Scatter(
-        name='28th April 2025',
-        x=april28_data['time_of_day'],
-        y=april28_data['es->fr'],
-        mode='lines',
-        line=dict(width=3, color='red'),
-    )
-)
-
-# Add text annotations just above the top of y-axis range
-fig.add_annotation(
-    text="April 28th",
-    x=1,
-    y=ymax + 200,  # Just slightly above ymax
-    showarrow=False,
-    font=dict(color="red", size=16)
-)
-
-fig.add_annotation(
-    text="March-April 2025",
-    x=4,
-    y=ymax + 200,  # Same height as other annotation
-    showarrow=False,
-    font=dict(color="grey", size=16)
-)
-
-# Add horizontal line at y=0
-fig.add_hline(y=0, line_width=2, line_color="black")
-
-# Update layout
-fig.update_layout(
-    title='Exports from Spain to France were below seasonal average',
-    xaxis_title=None,
-    xaxis=dict(
-        tickfont=dict(size=12),
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray'
-    ),
-    yaxis_title='Power Flow [MW]',
-    yaxis=dict(
-        tickmode='array',
-        tickvals=list(range(ymin, ymax+500, 500)),
-        ticktext=[f'{i:.0f}' for i in range(ymin, ymax+500, 500)],
-        range=[ymin, ymax + 200]  # Set range to include annotations
-    ),
-    hovermode='x unified',
-    showlegend=False,
-    height=600,
-    width=1200,
-    plot_bgcolor='white',
-    paper_bgcolor='white',
-    margin=dict(l=50, r=50, t=90, b=60)
-)
-
-# Set x-axis ticks to show every hour
-fig.update_xaxes(
-    tickmode='array',
-    ticktext=[f'{i:02d}:00' for i in range(24)],
-    tickvals=list(range(24))
-)
-
-fig.show()
-fig.write_image(figures_dir / "es_fr_flows_20250301_20250428.png")
-
-``` 

@@ -1,0 +1,221 @@
+# Cross Border Flows
+
+```{python}
+# set up
+import pandas as pd
+import matplotlib.pyplot as plt
+import plotly
+import plotly.graph_objects as go
+import numpy as np
+from datetime import datetime
+import pytz
+from scipy.io import loadmat
+
+
+# relative paths using pyprojroot (see pvwatts_sandbox/paths.py)
+from apagon_april28.paths import root, data_dir, notebooks_dir, figures_dir
+from apagon_april28.constants import generation_type_colors, generation_type_column_order
+```
+
+
+# Cross Border Flows
+```{python}
+# Load Flow Data
+flows_es_fr_df = pd.read_csv(data_dir / 'external' / 'es_fr_Cross-Border Physical Flow_202501010000-202601010000.csv')
+
+flows_es_fr_df['datetime'] = pd.to_datetime(flows_es_fr_df['Time (CET/CEST)'].str.split(' - ').str[0], format='%d.%m.%Y %H:%M')
+flows_es_fr_df = flows_es_fr_df.set_index('datetime')
+flows_es_fr_df = flows_es_fr_df.drop(['Time (CET/CEST)'], axis=1)
+flows_es_fr_df.columns = flows_es_fr_df.columns.str.replace(' [MW]', '')
+flows_es_fr_df = flows_es_fr_df.apply(pd.to_numeric, errors='coerce')
+
+flows_es_fr_df['es->fr'] = flows_es_fr_df['CTA|ES > CTA|FR'] - flows_es_fr_df['CTA|FR > CTA|ES']    
+
+
+# ------------------------------------------------------------------------------------------------
+# Plot flows
+fig = go.Figure()
+
+# Add traces for each flow direction
+fig.add_trace(
+    go.Scatter(
+        name='France to Spain',
+        x=flows_es_fr_df.index,
+        y=flows_es_fr_df['es->fr'],
+        mode='lines',
+        line=dict(width=2)
+    )
+)
+
+# Update layout
+fig.update_layout(
+    title='Cross Border Power Flows between Spain and France',
+    xaxis_title='Date',
+    yaxis_title='Power Flow [MW]',
+    hovermode='x unified',
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ),
+    height=600,
+    width=1200,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(l=50, r=50, t=90, b=60)
+)
+
+#fig.show()
+
+```
+
+
+```{python}
+# ------------------------------------------------------------------------------------------------
+
+# load the transmission line data
+ntc_df = pd.read_csv(data_dir / 'external' / 'export_NTCFranceExport_2025-05-04_12_16.csv', sep=';')
+ntc_df['datetime'] = pd.to_datetime(ntc_df['datetime'])
+ntc_df = ntc_df.set_index('datetime')
+ntc_df = ntc_df.sort_index()
+ntc_df = ntc_df.rename(columns={'value': 'ntc_flow'})
+ntc_df['hour'] = ntc_df.index.hour
+ntc_df['minute'] = ntc_df.index.minute
+ntc_df['time_of_day'] = ntc_df['hour'] + ntc_df['minute']/60
+ntc_df['date'] = ntc_df.index.date.astype(str)
+ntc_df = ntc_df[ntc_df['date'] == '2025-04-28']
+print(ntc_df.head())
+
+
+# Create a new dataframe with hour and minute columns
+t_flow_start = pd.to_datetime('2025-03-01 00:00:00')
+t_flow_end = pd.to_datetime('2025-04-28 23:59:59')
+flows_es_fr_df = flows_es_fr_df[flows_es_fr_df.index >= t_flow_start]
+flows_es_fr_df = flows_es_fr_df[flows_es_fr_df.index <= t_flow_end]
+
+
+flows_es_fr_df['hour'] = flows_es_fr_df.index.hour
+flows_es_fr_df['minute'] = flows_es_fr_df.index.minute
+flows_es_fr_df['time_of_day'] = flows_es_fr_df['hour'] + flows_es_fr_df['minute']/60
+flows_es_fr_df['date'] = flows_es_fr_df.index.date.astype(str)
+
+# Create figure
+fig = go.Figure()
+
+# Add a line for each date
+import math
+y_tick_interval = 250
+ymin = y_tick_interval * math.floor((flows_es_fr_df['es->fr'].min() - y_tick_interval) / y_tick_interval)
+ymax = y_tick_interval * math.ceil((flows_es_fr_df['es->fr'].max() + y_tick_interval) / y_tick_interval)
+
+# 2025 flows
+for date in flows_es_fr_df['date'].unique():
+
+    day_data = flows_es_fr_df[flows_es_fr_df['date'] == date]
+    
+    fig.add_trace(
+        go.Scatter(
+            name=date,
+            x=day_data['time_of_day'],
+            y=day_data['es->fr'],
+            mode='lines',
+            line=dict(width=1, color='grey'),
+        )
+    )
+# April 28, 2025
+april28_data = flows_es_fr_df[flows_es_fr_df['date'] == '2025-04-28']
+fig.add_trace(
+    go.Scatter(
+        name='28th April 2025',
+        x=april28_data['time_of_day'],
+        y=april28_data['es->fr'],
+        mode='lines',
+        line=dict(width=3, color='red'),
+    )
+)
+
+
+# Add NTC flow to the figure
+fig.add_trace(
+    go.Scatter(
+        name='NTC Flow',
+        x=ntc_df['time_of_day'], 
+        y=ntc_df['ntc_flow'],
+        mode='lines',
+        line=dict(width=2, color='blue'),
+    )
+)
+
+
+
+
+
+
+# Add text annotations just above the top of y-axis range
+fig.add_annotation(
+    text="April 28th",
+    x=1,
+    y=ymax + 200,  # Just slightly above ymax
+    showarrow=False,
+    font=dict(color="red", size=16)
+)
+
+fig.add_annotation(
+    text="March-April 2025",
+    x=4,
+    y=ymax + 200,  # Same height as other annotation
+    showarrow=False,
+    font=dict(color="grey", size=16)
+)
+
+fig.add_annotation(
+    text="Export Limit to France",
+    x=8,
+    y=ymax + 200,  # Same height as other annotation
+    showarrow=False,
+    font=dict(color="blue", size=16)
+)
+
+# Add horizontal line at y=0
+fig.add_hline(y=0, line_width=2, line_color="black")
+
+# Update layout
+fig.update_layout(
+    title='Exports from Spain to France were below seasonal average',
+    xaxis_title=None,
+    xaxis=dict(
+        tickfont=dict(size=12),
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray'
+    ),
+    yaxis_title='Power Flow [MW]',
+    yaxis=dict(
+        tickmode='array',
+        tickvals=list(range(ymin, ymax+500, 500)),
+        ticktext=[f'{i:.0f}' for i in range(ymin, ymax+500, 500)],
+        range=[ymin, ymax + 200]  # Set range to include annotations
+    ),
+    hovermode='x unified',
+    showlegend=False,
+    height=600,
+    width=1200,
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    margin=dict(l=50, r=50, t=90, b=60)
+)
+
+# Set x-axis ticks to show every hour
+fig.update_xaxes(
+    tickmode='array',
+    ticktext=[f'{i:02d}:00' for i in range(24)],
+    tickvals=list(range(24))
+)
+
+fig.show()
+fig.write_image(figures_dir / "es_fr_flows_20250301_20250428.png")
+
+``` 

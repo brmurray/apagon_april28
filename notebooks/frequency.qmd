@@ -270,19 +270,19 @@ def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, titl
     )
 
     # Note entso-e RoCoF limit
-    fig.add_hrect(y0=ymin, y1=-1, fillcolor="gray", opacity=0.1, line_width=0)
-    fig.add_hrect(y0=1, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=ymin, y1=-1.25, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=1.25, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
 
     fig.add_annotation(
         x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-        y=1.03,
+        y=1.25 + 0.03,
         text="<i>entso-e RoCoF limit</i>",
         showarrow=False,
         font=dict(size=12)
     )
     fig.add_annotation(
         x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-        y=-1.03,
+        y=-(1.25 + 0.03),
         text="<i>entso-e RoCoF limit</i>",
         showarrow=False,
         font=dict(size=12)
