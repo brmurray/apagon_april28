@@ -1,14 +1,47 @@
+import matplotlib.gridspec as gridspec
 
+plt.figure(figsize=(14, 10))
+gs = gridspec.GridSpec(2, 2, width_ratios=[20, 1], height_ratios=[1, 1], wspace=0.05)
+
+# Plot 1: Original time series
+ax1 = plt.subplot(gs[0, 0])
+time = np.arange(len(y)) / fs / 60  # Time in minutes
+ax1.plot(time, y+50)
+ax1.grid(True)
+ax1.set_xlabel('Time (minutes)')
+ax1.set_ylabel('Frequency (Hz)')
+ax1.set_title(f'Grid Frequency Measurements (Total Duration: {duration_str})')
+
+# Plot 2: Spectrogram, focusing on the range of interest
+ax2 = plt.subplot(gs[1, 0])
+mask = (f >= 0.05) & (f <= 0.3)
+pcm = ax2.pcolormesh(t/60, f[mask], 10 * np.log10(Sxx[mask]), 
+                     shading='gouraud', cmap='viridis')
+ax2.set_ylabel('Frequency (Hz)')
+ax2.set_xlabel('Time (minutes)')
+ax2.set_title('Spectrogram: Sub-synchronous Oscillations')
+
+# Colorbar in its own axes
+cax = plt.subplot(gs[1, 1])
+plt.colorbar(pcm, cax=cax, label='Power/Frequency (dB/Hz)')
+
+plt.tight_layout()
+plt.show()
 
 ```{python}
 import pandas as pd
+import numpy as np
+from scipy.io import loadmat
+from scipy import signal
+
+from datetime import datetime
+import pytz
+
 import matplotlib.pyplot as plt
 import plotly
 import plotly.graph_objects as go
-import numpy as np
-from datetime import datetime
-import pytz
-from scipy.io import loadmat
+import matplotlib.colors as colors
+import matplotlib.gridspec as gridspec
 
 # relative paths using pyprojroot (see pvwatts_sandbox/paths.py)
 from apagon_april28.paths import root, data_dir, notebooks_dir, figures_dir
@@ -148,8 +181,35 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
 ```{python}
 
 def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-1.5, ymax=1.5):
-    fig = go.Figure()
+    """
+    Create a plot comparing different ROCOF calculation window sizes for a given time period.
 
+    Parameters
+    ----------
+    rocof_df : pandas.DataFrame
+        DataFrame containing ROCOF values calculated with different window sizes.
+        Expected columns are 'rocof_instantaneous', 'rocof_500ms', 'rocof_1000ms', 'rocof_2000ms'
+    start_time : datetime-like
+        Start time for the plot window
+    end_time : datetime-like
+        End time for the plot window
+    title_text : str
+        Title for the plot
+    ymin : float, optional
+        Minimum y-axis value, defaults to -1.5 Hz/s
+    ymax : float, optional
+        Maximum y-axis value, defaults to 1.5 Hz/s
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Figure object containing the ROCOF comparison plot with:
+        - Lines for each ROCOF calculation window size in different shades of red
+        - Gray shaded region indicating unreliable data after blackout
+        - Horizontal bands indicating ENTSO-E ROCOF limits
+        - Annotations for data reliability and ROCOF limits
+    """
+    fig = go.Figure()
 
     rocof_colors = {
         'rocof_instantaneous': '#ff3333',  # bright red
@@ -239,6 +299,24 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
     return fig
 
 def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None):
+    """Creates a plot comparing Rate of Change of Frequency (RoCoF) measurements from multiple PMUs.
+    
+    Args:
+        pmu_df (pd.DataFrame): DataFrame containing PMU frequency measurements, with PMU names as columns
+        start_time (pd.Timestamp): Start time for the plot window
+        end_time (pd.Timestamp): End time for the plot window  
+        pmu_aliases (dict): Dictionary mapping PMU names to display names for the legend
+        title_text (str): Title text for the plot
+        ymin (float, optional): Minimum y-axis value. Defaults to -1.5 Hz/s if None
+        ymax (float, optional): Maximum y-axis value. Defaults to 1.5 Hz/s if None
+        
+    Returns:
+        plotly.graph_objects.Figure: Figure object containing the RoCoF comparison plot with:
+            - Line traces for each PMU's RoCoF measurements
+            - ENTSO-E RoCoF limit annotations at ±1.25 Hz/s
+            - Gray shading for unreliable data regions
+            - Customized layout with grid, fonts, and legend
+    """
     
     df_to_plot = pmu_df.loc[start_time:end_time]
     
@@ -326,11 +404,112 @@ def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, titl
     
     return fig
 
+```
+
+## FFT and Spectrogram
+```{python}
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import numpy as np
+from scipy import signal
 
 
+def create_grid_frequency_spectrogram(data, pmu_name, fs=10, window_size=600, overlap=0.75, plot=True):
+    """
+    Create a spectrogram from grid frequency measurements, focusing on sub-synchronous oscillations.
+    
+    Parameters:
+    -----------
+    data : pandas Series or numpy array
+        Grid frequency measurements
+    fs : float, default=10
+        Sampling frequency in Hz
+    window_size : int, default=600
+        Number of samples in each FFT window (60 seconds at 10 Hz)
+    overlap : float, default=0.75
+        Overlap between consecutive windows (75% overlap)
+    plot : bool, default=True
+        Whether to plot the results
+        
+    Returns:
+    --------
+    dict : Dictionary containing spectrogram data
+    """
+    # Ensure data is a numpy array
+    y = np.array(data)
+    
+    # Use just frequency error (remove 50 Hz)
+    y = y - 50
+    
+    # Calculate parameters for spectrogram
+    nperseg = window_size
+    noverlap = int(nperseg * overlap)
+    
+    # Create spectrogram
+    f, t, Sxx = signal.spectrogram(
+        y, 
+        fs=fs, 
+        window='hann',
+        nperseg=nperseg, 
+        noverlap=noverlap, 
+        detrend='constant',
+        scaling='density'
+    )
+    
+    # Calculate total duration in hours:minutes:seconds
+    total_duration_sec = len(y) / fs
+    hours = int(total_duration_sec // 3600)
+    minutes = int((total_duration_sec % 3600) // 60)
+    seconds = int(total_duration_sec % 60)
+    date = pmu_df.index[0].strftime('%Y-%m-%d')
+    
+    if plot:
+        # Create the plot
+        fig = plt.figure(figsize=(14, 10))
+        gs = gridspec.GridSpec(2, 2, width_ratios=[20, 1], height_ratios=[1, 1], wspace=0.05)
+        
+        # Plot 1: Original time series
+        ax1 = plt.subplot(gs[0, 0])
+        time = np.arange(len(y)) / fs   # Time in seconds
+        t_datetime = [pmu_df.index[0] + pd.Timedelta(seconds=t) for t in time]
 
-
-
+        ax1.plot(time, y+50)
+        ax1.grid(True)
+        #ax1.set_xlabel('Time (minutes)')
+        ax1.set_xlim([0, 20.5])
+        ax1.set_xticks(time[::len(time)//6])  # Show 6 ticks
+        ax1.set_xticklabels([t.strftime('%H:%M') for t in t_datetime[::len(time)//6]])
+        ax1.set_ylabel('Frequency (Hz)')
+        ax1.set_title(f'Grid Frequency Measurements | {pmu_name} | {date}')
+        
+        # Plot 2: Spectrogram, focusing on the range of interest
+        ax2 = plt.subplot(gs[1, 0])
+        mask = (f >= 0.05) & (f <= 0.3)
+        pcm = ax2.pcolormesh(t, f[mask], 10 * np.log10(Sxx[mask]), 
+                             shading='gouraud', cmap='viridis')
+        ax2.set_ylabel('Frequency (Hz)')
+        # ax2.set_xlabel('Time (minutes)')
+        # ax2.set_xlim([0, 20.33333333333])
+        # ax2.set_xticks(time[::len(time)//6])  # Show 6 ticks
+        ax2.set_xticklabels([t.strftime('%H:%M') for t in t_datetime[::len(time)//6]])
+        ax2.set_title(f'Spectrogram: Sub-synchronous Oscillations (window size: {window_size/(fs)} seconds)')
+        
+        # Colorbar in its own axes
+        cax = plt.subplot(gs[1, 1])
+        plt.colorbar(pcm, cax=cax, label='Power/Frequency (dB/Hz)')
+        
+        plt.tight_layout()
+        #plt.show()
+    
+    return {
+        'fig': fig,
+        'frequencies': f,
+        'times': t,
+        'power': Sxx,
+        'fs': fs,
+        'window_size': window_size,
+        'overlap': overlap
+    }
 ```
 
 # Grid Events
@@ -424,10 +603,39 @@ fig.show()
 fig.write_image(figures_dir / "rocof_closeup.png")
 ```
 
+
+# Spectrogram
+- SSOs range from 7-30 Hz [@neso_SSOIdentificationWP1_2023]
+- ES_Malaga has 100ms sample time (10 Hz) -> Fastest we could see would be 20 Hz
+- April 28 oscillations appear ~=5 seconds
+```{python}
+fs = 10  # Sampling frequency for 100ms data
+window_minutes = 1
+window_size = int(window_minutes * 60 * fs)  # Convert minutes to samples
+
+# Trim the full PMU dataframe to the desired time range
+t_spectrogram_start = pd.to_datetime('2025-04-28 12:13:00').tz_localize('Europe/Madrid')
+t_spectrogram_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')
+
+# Which column to plot
+pmu_name = 'ES_Malaga'
+
+# Create spectrogram
+spec_data = create_grid_frequency_spectrogram(
+    pmu_df[pmu_name].loc[t_spectrogram_start:t_spectrogram_end], 
+    pmu_name=pmu_name,
+    fs=fs, 
+    window_size=window_size, 
+    plot=True
+)
+
+fig = spec_data['fig']
+fig.show()
+fig.savefig(figures_dir / f"spectrogram_{pmu_name}.png")
+```
+
 ```{python}
 
 
 
-
-
-```
+```     
