@@ -6,28 +6,23 @@ Explore the causes and impacts of the Iberian blackout on April 28, 2025.
 
 ```
 ├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
-├── README.md          <- The top-level README for developers using this project.
+├── README.md          <- Introduction to the project and basic information about the events of April 28, 2025
 ├── data
 │   ├── external       <- Data from third party sources.
 │   ├── interim        <- Intermediate data that has been transformed.
 │   ├── processed      <- The final, canonical data sets for modeling.
 │   └── raw            <- The original, immutable data dump.
 │
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
+├── docs               <- How to use this data (currently empty as of May 4, 2025...)
 │
-├── models             <- Trained and serialized models, model predictions, or model summaries
-│
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
+├── notebooks          <- Analysis, organized somewhat arbitrarily by theme and data source.
 │
 ├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         apagon_april28 and configuration for tools like black
+│                         apagon_april28 and configuration for tools like blacks
 │
 ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
 │
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
+├── reports            <- Presentable analysis in PPTX and PDF
 │   └── figures        <- Generated graphics and figures to be used in reporting
 │
 ├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
@@ -39,18 +34,12 @@ Explore the causes and impacts of the Iberian blackout on April 28, 2025.
     │
     ├── __init__.py             <- Makes apagon_april28 a Python module
     │
-    ├── config.py               <- Store useful variables and configuration
+    ├── constants.py            <- Cross-project constants, colors, lists for ordering items in plots, etc
     │
-    ├── dataset.py              <- Scripts to download or generate data
+    ├── paths.py                <- uses with pyprojroot to allow clean relative paths within the repo
     │
-    ├── features.py             <- Code to create features for modeling
-    │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
+    ├── inertia_constants.csv   <- Inertia constants for different generationt types, per entso-e [@entsoe_InertiaRoCoF_2020]
+
 ```
 
 --------

@@ -1,4 +1,5 @@
 
+# ENTSO-E Generation Types
 generation_type_colors = {
     # Coal family - shades of brown
     "Fossil Hard coal": "#8B4513",
@@ -53,7 +54,6 @@ generation_type_colors = {
     "Fossil": "#2F4F4F"
 }
 
-
 generation_type_column_order = [
     "Nuclear",
     "Fossil Hard coal",
@@ -76,4 +76,3 @@ generation_type_column_order = [
     "Other",
     "Solar"
 ]
-

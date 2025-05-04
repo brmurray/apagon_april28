@@ -73,7 +73,7 @@ pct_es_df = gen_es_df.div(total_gen, axis=0)
 
 
 ## Inertia Estimation
-- inertia constants from entso-e_InertiaRoCoF_2020 ("Inertia and Rate of Change of Frequency (RoCoF)", 16 Dec 2020)
+- inertia constants from entsoe_InertiaRoCoF_2020 ("Inertia and Rate of Change of Frequency (RoCoF)", 16 Dec 2020)
 ```{python}
 
 inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
