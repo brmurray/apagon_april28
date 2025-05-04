@@ -1,6 +1,6 @@
 # apagon_april28
 
-> *Last Update: May 2, 2025 @ 1735 CEST*
+> *Last Update: May 4, 2025 @ 1945 CEST*
 
 On April 28, 2025, the Iberian penisula suffered the largest and widest power outage in its history. The proximate and contributing causes are still under investigation, and no authoritative report as been issued as of this writing. This repo, sponsored by the [LEMUR Lab](https://lemuruniovi.com/) at [Universidad de Oviedo](https://www.uniovi.es/), is a central collection point for relevant, publically-sharable data about the event.
 
