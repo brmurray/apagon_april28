@@ -17,13 +17,14 @@ _Our best timeline (all times CEST)_
 
 
 # What do we _not_ know?
-- The Spanish government insists that a cyberattack is not to blame. LEMUR believes that there are perfectly reasonable technical reasons for the outage, and thus we have no specific reason to question the government's assertion. Nevertheless, the generally public will not know the cybersecurity details any time soon, if ever.
+- The Spanish government insists that a cyberattack is not to blame. LEMUR believes that there are perfectly plausable technical explanations for the outage, and thus we have no specific reason to question the government's assertion. Nevertheless, the generally public will not know the cybersecurity details any time soon, if ever.
 - The Spanish government has also ruled out human error and extraordinary meterological conditions as root causes, and we ignore them for the sames reasons as above.
 - Very detailed information about the physical conditions of the grid and market operations will be necessary for a root-cause analysis. We don't have access to that data. Instead, we're pursuing a humble, transparent analysis using whatever public information we can collect.
 
 # What can we infer?
 - The Spanish grid was operating with a very high ratio of solar energy at the time. Inverter-based resources (solar and batteries but also some flavors of wind and hydropower) have no synchronous interia, so the overall inertia of the Iberian grid was quite low on the morning of April 28.
-- Inter-area frequency oscillations are especially difficult to predict and manage.
+- None of the individual operating characteristics of the Iberian grid on the morning of April 28 were unprecedented, or even extraordinary. It probably too the day's unique blend of vulnerablilities and unfortunate events to cause the blackout.
+- Inter-area frequency oscillations are especially difficult to predict and manage, and an area of active research in the field. 
 
 
 # What would we like to know?
