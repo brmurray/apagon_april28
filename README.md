@@ -9,7 +9,8 @@ On April 28, 2025, the Iberian penisula suffered the largest and widest power ou
 Check out the [reports](reports/) folder for a colorful presentation and ["Detailed Analysis"](detailed_analysis.md) for especially nerdy content.
 
 _Our best timeline (all times CEST)_
-- **12:00:00 or earlier** - Frequency oscillations observed in the Iberian transmission grid.
+- **06:00:00** - Transmission export capacity Spain -> France is reduced to ~1.8GW (typically ~2.6GW). 
+- **12:00:00 or earlier** - Frequency oscillations, (T=~4.3s) observed in the Iberian transmission grid.
 - **12:19:30.0** - Frequency oscillations significantly worsen for ~3 minutes, then apparently decay around 12:22:00pm.
 - **12:32:57.3** - Major rapid frequency dip in Iberian grid is not apparent in other markets. The Iberian grid reovers briefly but frequencies decline across the continent for ~ 15 seconds until...
 - **12:33.16.5** - Fast, irreversible frequency drop starts at 12:33:16.5. Likely some large source tripped and started the cascade of “15GW in 5 seconds”.
