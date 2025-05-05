@@ -89,7 +89,7 @@ print("Last timestamp: ", pmu_df_raw.index.max())
 # Function Prototypes
 ## Frequency Plot
 ```{python}
-def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None):
+def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None):
     
     df_to_plot = pmu_df.loc[start_time:end_time]
     
@@ -135,6 +135,11 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
     #     showarrow=False,
     #     font=dict(size=12)
     # )
+
+    if events is not None:
+        for event in events:
+            fig.add_vline(x=event, line_dash="dash", line_color="gray")
+
 
     # Update layout
     fig.update_layout(
@@ -559,9 +564,25 @@ fig.write_image(figures_dir / "dfd.png")
 ## Separation
 ```{python}
 # Second Oscillation
+
+
+first_loss = pd.to_datetime('2025-04-28 12:33:16.5').tz_localize('Europe/Madrid')
+second_loss = pd.to_datetime('2025-04-28 12:33:17.8').tz_localize('Europe/Madrid')
+separation = pd.to_datetime('2025-04-28 12:33:19.4').tz_localize('Europe/Madrid')
+events = [first_loss, second_loss, separation]
+
 separation_t_start = pd.to_datetime('2025-04-28 12:32:45').tz_localize('Europe/Madrid')
 separation_t_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')
-fig = create_frequency_plot(pmu_df, separation_t_start, separation_t_end, pmu_aliases, "Separation", ymin=49.75, ymax=50.05)
+fig = create_frequency_plot(
+    pmu_df = pmu_df,
+    start_time = separation_t_start,
+    end_time = separation_t_end,
+    pmu_aliases = pmu_aliases,
+    title_text = "Separation",
+    ymin=49.75,
+    ymax=50.05,
+    events = events
+)
 fig.show()
 fig.write_image(figures_dir / "separation.png")
 ```
@@ -634,8 +655,4 @@ fig.show()
 fig.savefig(figures_dir / f"spectrogram_{pmu_name}.png")
 ```
 
-```{python}
 
-
-
-```     
