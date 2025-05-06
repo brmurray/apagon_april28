@@ -1,34 +1,6 @@
-import matplotlib.gridspec as gridspec
-
-plt.figure(figsize=(14, 10))
-gs = gridspec.GridSpec(2, 2, width_ratios=[20, 1], height_ratios=[1, 1], wspace=0.05)
-
-# Plot 1: Original time series
-ax1 = plt.subplot(gs[0, 0])
-time = np.arange(len(y)) / fs / 60  # Time in minutes
-ax1.plot(time, y+50)
-ax1.grid(True)
-ax1.set_xlabel('Time (minutes)')
-ax1.set_ylabel('Frequency (Hz)')
-ax1.set_title(f'Grid Frequency Measurements (Total Duration: {duration_str})')
-
-# Plot 2: Spectrogram, focusing on the range of interest
-ax2 = plt.subplot(gs[1, 0])
-mask = (f >= 0.05) & (f <= 0.3)
-pcm = ax2.pcolormesh(t/60, f[mask], 10 * np.log10(Sxx[mask]), 
-                     shading='gouraud', cmap='viridis')
-ax2.set_ylabel('Frequency (Hz)')
-ax2.set_xlabel('Time (minutes)')
-ax2.set_title('Spectrogram: Sub-synchronous Oscillations')
-
-# Colorbar in its own axes
-cax = plt.subplot(gs[1, 1])
-plt.colorbar(pcm, cax=cax, label='Power/Frequency (dB/Hz)')
-
-plt.tight_layout()
-plt.show()
-
 ```{python}
+from importlib import reload
+
 import pandas as pd
 import numpy as np
 from scipy.io import loadmat
@@ -43,9 +15,14 @@ import plotly.graph_objects as go
 import matplotlib.colors as colors
 import matplotlib.gridspec as gridspec
 
-# relative paths using pyprojroot (see pvwatts_sandbox/paths.py)
-from apagon_april28.paths import root, data_dir, notebooks_dir, figures_dir
+# Project-Specific Imports
+import apagon_april28.plots as plots
 
+# relative paths using pyprojroot (see pvwatts_sandbox/paths.py)
+from apagon_april28.paths import root, data_dir, shareable_dir, notebooks_dir, figures_dir
+import apagon_april28.constants as constants
+
+pmu_aliases = constants.pmu_aliases
 
 # Cleaning the PMU Data
 # Load the .mat file
@@ -63,467 +40,22 @@ pmu_df_raw = pmu_df_raw.set_index('time')
 # drop any rows where ES_Malaga is NaN
 pmu_df = pmu_df_raw.dropna(subset=['ES_Malaga'])
 
-pmu_colors = {
-    'CH_ZHAW': '#2e8b57',  # sea green
-    'DE_Ostrhauderfehn': '#3cb371',  # medium sea green
-    'ES_Malaga': '#ff3333',  # bright red - stands out
-    'HR_STER': '#00bfff',  # bright blue (deep sky blue)
-    'LV_Daugavpils': '#9370db',  # medium purple
-    'LV_Adazi': '#a379e8'  # similar purple to Daugavpils
-}
-
-pmu_aliases = {
-    'ES_Malaga': 'Spain',
-    'CH_ZHAW': 'Switzerland',
-    'DE_Ostrhauderfehn': 'Germany',
-    'LV_Daugavpils': 'Latvia (Daugavpils)',
-    'LV_Adazi': 'Latvia (Adazi)',
-    'HR_STER': 'Croatia'
-}
-
-
-print("First timestamp: ", pmu_df_raw.index.min())
-print("Last timestamp: ", pmu_df_raw.index.max())
-```
-
-# Function Prototypes
-## Frequency Plot
-```{python}
-def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None):
-    
-    df_to_plot = pmu_df.loc[start_time:end_time]
-    
-    fig = go.Figure()
-
-    for pmu, name in pmu_aliases.items():
-        fig.add_trace(go.Scatter(
-            x=df_to_plot.index,
-            y=df_to_plot[pmu],
-            mode='lines',
-            name=name,
-            line=dict(color=pmu_colors[pmu])
-        ))
-
-    # Mark +/- 200mHz and +/- 800mHz
-    if ymin is None:
-        try:
-            ymin = round(df_to_plot.min().min() * 10 - 1) / 10
-        except:
-            ymin = 49.1
-    if ymax is None:
-        try:
-            ymax = round(df_to_plot.max().max() * 10 + 1) / 10
-        except:
-            ymax = 50.9
-    fig.add_hrect(y0=ymin, y1=49.2, fillcolor="gray", opacity=0.1, line_width=0)
-    fig.add_hrect(y0=ymin, y1=49.8, fillcolor="gray", opacity=0.1, line_width=0)
-    fig.add_hrect(y0=50.2, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
-    fig.add_hrect(y0=50.8, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
-
-    # Note FCR saturation at +/- 200mhz
-    fig.add_annotation(
-        x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-        y=49.78,
-        text="<i>FCR Saturation</i>",
-        showarrow=False,
-        font=dict(size=12)
-    )
-    # fig.add_annotation(
-    #     x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-    #     y=50.22,
-    #     text="<i>FCR Saturation</i>",
-    #     showarrow=False,
-    #     font=dict(size=12)
-    # )
-
-    if events is not None:
-        for event in events:
-            fig.add_vline(x=event, line_dash="dash", line_color="gray")
-
-
-    # Update layout
-    fig.update_layout(
-        title=title_text,
-        title_font=dict(size=24),
-        xaxis_title=None,
-        yaxis_title='Frequency [Hz]',
-        yaxis_title_font=dict(size=20),
-        yaxis_range=[ymin, ymax],
-        showlegend=True,
-        legend=dict(
-            font=dict(size=24),
-            orientation='h',
-            yanchor='bottom',
-            y=1.0,
-            xanchor='right',
-            x=1
-        ),
-        xaxis=dict(
-            tickfont=dict(size=20),
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray'
-        ),
-        yaxis=dict(
-            tickfont=dict(size=20),
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray'
-        ),
-        height = 800,
-        width = 1600,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(l=50, r=50, t=90, b=60)
-    )
-    
-    return fig
-
-
-```
-
-## ROCOF Plots
-```{python}
-
-def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-1.5, ymax=1.5):
-    """
-    Create a plot comparing different ROCOF calculation window sizes for a given time period.
-
-    Parameters
-    ----------
-    rocof_df : pandas.DataFrame
-        DataFrame containing ROCOF values calculated with different window sizes.
-        Expected columns are 'rocof_instantaneous', 'rocof_500ms', 'rocof_1000ms', 'rocof_2000ms'
-    start_time : datetime-like
-        Start time for the plot window
-    end_time : datetime-like
-        End time for the plot window
-    title_text : str
-        Title for the plot
-    ymin : float, optional
-        Minimum y-axis value, defaults to -1.5 Hz/s
-    ymax : float, optional
-        Maximum y-axis value, defaults to 1.5 Hz/s
-
-    Returns
-    -------
-    plotly.graph_objects.Figure
-        Figure object containing the ROCOF comparison plot with:
-        - Lines for each ROCOF calculation window size in different shades of red
-        - Gray shaded region indicating unreliable data after blackout
-        - Horizontal bands indicating ENTSO-E ROCOF limits
-        - Annotations for data reliability and ROCOF limits
-    """
-    fig = go.Figure()
-
-    rocof_colors = {
-        'rocof_instantaneous': '#ff3333',  # bright red
-        'rocof_500ms': '#ff6666',  # lighter red
-        'rocof_1000ms': '#ff9999', # even lighter red
-        'rocof_2000ms': '#ffcccc'  # very light red
-    }
-
-    df_to_plot = rocof_df.loc[start_time:end_time]
-
-    for column in df_to_plot.columns:
-        fig.add_trace(
-            go.Scatter(
-                x=df_to_plot.index,
-                y=df_to_plot[column],
-                name=column,
-                mode='lines',
-                line=dict(color=rocof_colors[column])
-            )
-        )
-
-    # Note unreliable data after 12:33:16.5
-    fig.add_vrect(x0=pd.to_datetime('2025-04-28 12:33:20.5').tz_localize('Europe/Madrid'), x1=end_time, fillcolor="gray", opacity=0.7, line_width=0)
-    fig.add_annotation(
-        x = end_time,
-        y=min(1.3,ymax),
-        text="<i>ES_Malaga PMU data<br>is unreliable after blackout</i>",
-        showarrow=False,
-        font=dict(size=12),
-        xanchor='right',
-        yanchor='top'
-    )
-
-    # Note entso-e RoCoF limit
-    fig.add_hrect(y0=ymin, y1=max(ymin, -1.25), fillcolor="gray", opacity=0.1, line_width=0)
-    fig.add_hrect(y0=min(ymax, 1.25), y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
-
-    if ymax > 1.3:
-        fig.add_annotation(
-            x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-            y=1.28,
-            text="<i>ensto-e RoCoF limit (500ms moving average)</i>",
-            showarrow=False,
-            font=dict(size=12)
-        )
-    if ymin < -1.25:
-        fig.add_annotation(
-            x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-            y=-1.28,
-            text="<i>entso-e RoCoF limit (500ms moving average)</i>",
-            showarrow=False,
-            font=dict(size=12)
-    )
-
-    fig.update_layout(
-        title=dict(
-            text="ROCOF Comparison - Different Window Sizes",
-            x=0.5,
-            y=0.95,
-            font=dict(size=24)
-        ),
-        xaxis=dict(
-            tickfont=dict(size=20),
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray'
-        ),
-        yaxis=dict(
-            title="ROCOF (Hz/s)",
-            tickfont=dict(size=20),
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray',
-            range=[ymin, ymax]
-        ),
-        height=800,
-        width=1600,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(l=50, r=50, t=90, b=60),
-        showlegend=True,
-        legend=dict(
-            font=dict(size=20)
-        )
-    )
-
-    return fig
-
-def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None):
-    """Creates a plot comparing Rate of Change of Frequency (RoCoF) measurements from multiple PMUs.
-    
-    Args:
-        pmu_df (pd.DataFrame): DataFrame containing PMU frequency measurements, with PMU names as columns
-        start_time (pd.Timestamp): Start time for the plot window
-        end_time (pd.Timestamp): End time for the plot window  
-        pmu_aliases (dict): Dictionary mapping PMU names to display names for the legend
-        title_text (str): Title text for the plot
-        ymin (float, optional): Minimum y-axis value. Defaults to -1.5 Hz/s if None
-        ymax (float, optional): Maximum y-axis value. Defaults to 1.5 Hz/s if None
-        
-    Returns:
-        plotly.graph_objects.Figure: Figure object containing the RoCoF comparison plot with:
-            - Line traces for each PMU's RoCoF measurements
-            - ENTSO-E RoCoF limit annotations at ±1.25 Hz/s
-            - Gray shading for unreliable data regions
-            - Customized layout with grid, fonts, and legend
-    """
-    
-    df_to_plot = pmu_df.loc[start_time:end_time]
-    
-    fig = go.Figure()
-    for pmu, name in pmu_aliases.items():
-        fig.add_trace(go.Scatter(
-            x=df_to_plot.index,
-            y=df_to_plot[pmu],
-            mode='lines',
-            name=name,
-            line=dict(color=pmu_colors[pmu])
-        ))
-
-    # Plot parameters
-    ymin = -1.5
-    ymax = 1.5
-
-
-    # Note unreliable data after 12:33:16.5
-    fig.add_vrect(x0=pd.to_datetime('2025-04-28 12:33:23').tz_localize('Europe/Madrid'), x1=end_time, fillcolor="gray", opacity=0.7, line_width=0)
-    fig.add_annotation(
-        x = end_time,
-        y=1.3,
-        text="<i>ES_Malaga PMU data<br>is unreliable after blackout</i>",
-        showarrow=False,
-        font=dict(size=12),
-        xanchor='right',
-        yanchor='top'
-    )
-
-    # Note entso-e RoCoF limit
-    fig.add_hrect(y0=ymin, y1=-1.25, fillcolor="gray", opacity=0.1, line_width=0)
-    fig.add_hrect(y0=1.25, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
-
-    fig.add_annotation(
-        x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-        y=1.25 + 0.03,
-        text="<i>entso-e RoCoF limit</i>",
-        showarrow=False,
-        font=dict(size=12)
-    )
-    fig.add_annotation(
-        x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-        y=-(1.25 + 0.03),
-        text="<i>entso-e RoCoF limit</i>",
-        showarrow=False,
-        font=dict(size=12)
-    )
-
-    # Update layout
-    fig.update_layout(
-        title=title_text,
-        title_font=dict(size=24),
-        xaxis_title=None,
-        yaxis_title='Rate of Change of Frequency [Hz/s]',
-        yaxis_title_font=dict(size=20),
-        yaxis_range=[ymin, ymax],
-        showlegend=True,
-        legend=dict(
-            font=dict(size=24),
-            orientation='h',
-            yanchor='bottom',
-            y=1.0,
-            xanchor='right',
-            x=1
-        ),
-        xaxis=dict(
-            tickfont=dict(size=20),
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray'
-        ),
-        yaxis=dict(
-            tickfont=dict(size=20),
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='lightgray'
-        ),
-        height = 800,
-        width = 1600,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(l=50, r=50, t=90, b=60)
-    )
-    
-    return fig
-
-```
-
-## FFT and Spectrogram
-```{python}
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import numpy as np
-from scipy import signal
-
-
-def create_grid_frequency_spectrogram(data, pmu_name, fs=10, window_size=600, overlap=0.75, plot=True):
-    """
-    Create a spectrogram from grid frequency measurements, focusing on sub-synchronous oscillations.
-    
-    Parameters:
-    -----------
-    data : pandas Series or numpy array
-        Grid frequency measurements
-    fs : float, default=10
-        Sampling frequency in Hz
-    window_size : int, default=600
-        Number of samples in each FFT window (60 seconds at 10 Hz)
-    overlap : float, default=0.75
-        Overlap between consecutive windows (75% overlap)
-    plot : bool, default=True
-        Whether to plot the results
-        
-    Returns:
-    --------
-    dict : Dictionary containing spectrogram data
-    """
-    # Ensure data is a numpy array
-    y = np.array(data)
-    
-    # Use just frequency error (remove 50 Hz)
-    y = y - 50
-    
-    # Calculate parameters for spectrogram
-    nperseg = window_size
-    noverlap = int(nperseg * overlap)
-    
-    # Create spectrogram
-    f, t, Sxx = signal.spectrogram(
-        y, 
-        fs=fs, 
-        window='hann',
-        nperseg=nperseg, 
-        noverlap=noverlap, 
-        detrend='constant',
-        scaling='density'
-    )
-    
-    # Calculate total duration in hours:minutes:seconds
-    total_duration_sec = len(y) / fs
-    hours = int(total_duration_sec // 3600)
-    minutes = int((total_duration_sec % 3600) // 60)
-    seconds = int(total_duration_sec % 60)
-    date = pmu_df.index[0].strftime('%Y-%m-%d')
-    
-    if plot:
-        # Create the plot
-        fig = plt.figure(figsize=(14, 10))
-        gs = gridspec.GridSpec(2, 2, width_ratios=[20, 1], height_ratios=[1, 1], wspace=0.05)
-        
-        # Plot 1: Original time series
-        ax1 = plt.subplot(gs[0, 0])
-        time = np.arange(len(y)) / fs   # Time in seconds
-        t_datetime = [pmu_df.index[0] + pd.Timedelta(seconds=t) for t in time]
-
-        ax1.plot(time, y+50)
-        ax1.grid(True)
-        #ax1.set_xlabel('Time (minutes)')
-        ax1.set_xlim([0, 20.5])
-        ax1.set_xticks(time[::len(time)//6])  # Show 6 ticks
-        ax1.set_xticklabels([t.strftime('%H:%M') for t in t_datetime[::len(time)//6]])
-        ax1.set_ylabel('Frequency (Hz)')
-        ax1.set_title(f'Grid Frequency Measurements | {pmu_name} | {date}')
-        
-        # Plot 2: Spectrogram, focusing on the range of interest
-        ax2 = plt.subplot(gs[1, 0])
-        mask = (f >= 0.05) & (f <= 0.3)
-        pcm = ax2.pcolormesh(t, f[mask], 10 * np.log10(Sxx[mask]), 
-                             shading='gouraud', cmap='viridis')
-        ax2.set_ylabel('Frequency (Hz)')
-        # ax2.set_xlabel('Time (minutes)')
-        # ax2.set_xlim([0, 20.33333333333])
-        # ax2.set_xticks(time[::len(time)//6])  # Show 6 ticks
-        ax2.set_xticklabels([t.strftime('%H:%M') for t in t_datetime[::len(time)//6]])
-        ax2.set_title(f'Spectrogram: Sub-synchronous Oscillations (window size: {window_size/(fs)} seconds)')
-        
-        # Colorbar in its own axes
-        cax = plt.subplot(gs[1, 1])
-        plt.colorbar(pcm, cax=cax, label='Power/Frequency (dB/Hz)')
-        
-        plt.tight_layout()
-        #plt.show()
-    
-    return {
-        'fig': fig,
-        'frequencies': f,
-        'times': t,
-        'power': Sxx,
-        'fs': fs,
-        'window_size': window_size,
-        'overlap': overlap
-    }
+print("First PMU timestamp: ", pmu_df_raw.index.min())
+print("Last PMU timestamp: ", pmu_df_raw.index.max())
 ```
 
 # Grid Events
 ## Overview
 ```{python}
 # Overview
+reload(plots)
+
+# Plot Parameters
+pmus_to_plot = pmu_aliases
 overview_t_start = pd.to_datetime('2025-04-28 12:10:00').tz_localize('Europe/Madrid')
 overview_t_end = pd.to_datetime('2025-04-28 12:45:00').tz_localize('Europe/Madrid')
-fig = create_frequency_plot(pmu_df, overview_t_start, overview_t_end, pmu_aliases, "Grid Frequency Measurements Across Europe")
+
+fig = plots.create_frequency_plot(pmu_df, overview_t_start, overview_t_end, pmu_aliases, "Grid Frequency Measurements Across Europe")
 fig.show()
 fig.write_image(figures_dir / "overview.png", scale=1)
 ```
@@ -531,9 +63,14 @@ fig.write_image(figures_dir / "overview.png", scale=1)
 ## Early Oscillations
 ```{python}
 # First Oscillation
+reload(plots)
+
+# Plot Parameters
+pmus_to_plot = pmu_aliases
 oscillation1_t_start = pd.to_datetime('2025-04-28 12:10:00').tz_localize('Europe/Madrid')
 oscillation1_t_end = pd.to_datetime('2025-04-28 12:17:30').tz_localize('Europe/Madrid')
-fig = create_frequency_plot(pmu_df, oscillation1_t_start, oscillation1_t_end, pmu_aliases, "Early Oscillations")
+
+fig = plots.create_frequency_plot(pmu_df, oscillation1_t_start, oscillation1_t_end, pmu_aliases, "Early Oscillations")
 fig.show()
 fig.write_image(figures_dir / "oscillation1.png")
 ```
@@ -542,9 +79,14 @@ fig.write_image(figures_dir / "oscillation1.png")
 ## Bigger Oscillations
 ```{python}
 # Second Oscillation
+reload(plots)
+
+# Plot Parameters
+pmus_to_plot = pmu_aliases
 oscillation2_t_start = pd.to_datetime('2025-04-28 12:19:00').tz_localize('Europe/Madrid')
 oscillation2_t_end = pd.to_datetime('2025-04-28 12:22:00').tz_localize('Europe/Madrid')
-fig = create_frequency_plot(pmu_df, oscillation2_t_start, oscillation2_t_end, pmu_aliases, "Bigger Oscillations")
+
+fig = plots.create_frequency_plot(pmu_df, oscillation2_t_start, oscillation2_t_end, pmu_aliases, "Bigger Oscillations")
 fig.show()
 fig.write_image(figures_dir / "oscillation2.png")
 ```
@@ -553,9 +95,14 @@ fig.write_image(figures_dir / "oscillation2.png")
 ## DFD @ 12:30
 ```{python}
 # Second Oscillation
+reload(plots)
+
+# Plot Parameters
+pmus_to_plot = pmu_aliases
 dfd_t_start = pd.to_datetime('2025-04-28 12:29:10').tz_localize('Europe/Madrid')
 dfd_t_end = pd.to_datetime('2025-04-28 12:30:50').tz_localize('Europe/Madrid')
-fig = create_frequency_plot(pmu_df, dfd_t_start, dfd_t_end, pmu_aliases, "DFD @ 12:30")
+
+fig = plots.create_frequency_plot(pmu_df, dfd_t_start, dfd_t_end, pmu_aliases, "DFD @ 12:30")
 fig.show()
 fig.write_image(figures_dir / "dfd.png")
 ```
@@ -563,9 +110,11 @@ fig.write_image(figures_dir / "dfd.png")
 
 ## Separation
 ```{python}
-# Second Oscillation
+# Separation
+reload(plots)
 
-
+# Plot Parameters
+pmus_to_plot = pmu_aliases
 first_loss = pd.to_datetime('2025-04-28 12:33:16.5').tz_localize('Europe/Madrid')
 second_loss = pd.to_datetime('2025-04-28 12:33:17.8').tz_localize('Europe/Madrid')
 separation = pd.to_datetime('2025-04-28 12:33:19.4').tz_localize('Europe/Madrid')
@@ -573,7 +122,8 @@ events = [first_loss, second_loss, separation]
 
 separation_t_start = pd.to_datetime('2025-04-28 12:32:45').tz_localize('Europe/Madrid')
 separation_t_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')
-fig = create_frequency_plot(
+
+fig = plots.create_frequency_plot(
     pmu_df = pmu_df,
     start_time = separation_t_start,
     end_time = separation_t_end,
@@ -587,12 +137,9 @@ fig.show()
 fig.write_image(figures_dir / "separation.png")
 ```
 
-
-
-
 # ROCOF
 ```{python}
-
+reload(plots)
 # Instantaneous RoCoF for all signals
 rocof_df = pmu_df.copy(deep=True)
 rocof_df = rocof_df.diff()/100e-3
@@ -612,14 +159,14 @@ rocof_es_df['rocof_2000ms'] = rocof_2000ms_df['ES_Malaga']
 pmus_to_plot = pmu_aliases
 t_rocof_overview_start = pd.to_datetime('2025-04-28 12:13:00').tz_localize('Europe/Madrid')
 t_rocof_overview_end = pd.to_datetime('2025-04-28 12:34:00').tz_localize('Europe/Madrid')
-fig = create_rocof_comparison_plot(rocof_df, t_rocof_overview_start, t_rocof_overview_end, pmus_to_plot, "ROCOF")
+fig = plots.create_rocof_comparison_plot(rocof_df, t_rocof_overview_start, t_rocof_overview_end, pmus_to_plot, "ROCOF")
 fig.show()
 fig.write_image(figures_dir / "rocof_overview.png")
 
 # RoCoF Closeup Plot
-t_rocof_closeup_start = pd.to_datetime('2025-04-28 12:32:50').tz_localize('Europe/Madrid')
-t_rocof_closeup_end = pd.to_datetime('2025-04-28 12:33:40').tz_localize('Europe/Madrid') 
-fig = create_rocof_closeup_plot(rocof_es_df, t_rocof_closeup_start, t_rocof_closeup_end, "ROCOF", ymin=-1.5, ymax=0.25)
+t_rocof_closeup_start = pd.to_datetime('2025-04-28 12:33:10').tz_localize('Europe/Madrid')
+t_rocof_closeup_end = pd.to_datetime('2025-04-28 12:33:25').tz_localize('Europe/Madrid') 
+fig = plots.create_rocof_closeup_plot(rocof_es_df, t_rocof_closeup_start, t_rocof_closeup_end, "ROCOF Moving Averages", ymin=-1.5, ymax=0.25)
 fig.show()
 fig.write_image(figures_dir / "rocof_closeup.png")
 ```
@@ -630,6 +177,8 @@ fig.write_image(figures_dir / "rocof_closeup.png")
 - ES_Malaga has 100ms sample time (10 Hz) -> Fastest we could see would be 20 Hz
 - April 28 oscillations appear ~=5 seconds
 ```{python}
+reload(plots)
+
 fs = 10  # Sampling frequency for 100ms data
 window_minutes = 1
 window_size = int(window_minutes * 60 * fs)  # Convert minutes to samples
@@ -642,7 +191,7 @@ t_spectrogram_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Ma
 pmu_name = 'ES_Malaga'
 
 # Create spectrogram
-spec_data = create_grid_frequency_spectrogram(
+spec_data = plots.create_grid_frequency_spectrogram(
     pmu_df[pmu_name].loc[t_spectrogram_start:t_spectrogram_end], 
     pmu_name=pmu_name,
     fs=fs, 

@@ -76,3 +76,23 @@ generation_type_column_order = [
     "Other",
     "Solar"
 ]
+
+
+# PMU Data from GridRadar
+pmu_colors = {
+    'CH_ZHAW': '#2e8b57',  # sea green
+    'DE_Ostrhauderfehn': '#3cb371',  # medium sea green
+    'ES_Malaga': '#ff3333',  # bright red - stands out
+    'HR_STER': '#00bfff',  # bright blue (deep sky blue)
+    'LV_Daugavpils': '#9370db',  # medium purple
+    'LV_Adazi': '#a379e8'  # similar purple to Daugavpils
+}
+
+pmu_aliases = {
+    'ES_Malaga': 'Spain',
+    'CH_ZHAW': 'Switzerland',
+    'DE_Ostrhauderfehn': 'Germany',
+    'LV_Daugavpils': 'Latvia (Daugavpils)',
+    'LV_Adazi': 'Latvia (Adazi)',
+    'HR_STER': 'Croatia'
+}
