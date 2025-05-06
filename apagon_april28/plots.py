@@ -106,6 +106,185 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
     
     return fig
 
+def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, ymax=None):
+    
+    df_to_plot = series.loc[start_time:end_time]
+    
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=df_to_plot.index,
+        y=df_to_plot,
+        mode='lines',
+        name=title_text,
+        line=dict(color='black')
+        ))
+
+    # Mark +/- 200mHz and +/- 800mHz
+    if ymin is None:
+        try:
+            ymin = round(df_to_plot.min().min() * 10 - 1) / 10
+        except:
+            ymin = 49.1
+    if ymax is None:
+        try:
+            ymax = round(df_to_plot.max().max() * 10 + 1) / 10
+        except:
+            ymax = 50.9
+    fig.add_hrect(y0=ymin, y1=49.2, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=ymin, y1=49.8, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=50.2, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=50.8, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+
+    # Note FCR saturation at +/- 200mhz
+    fig.add_annotation(
+        x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
+        y=49.78,
+        text="<i>FCR Saturation</i>",
+        showarrow=False,
+        font=dict(size=12)
+    )
+    # fig.add_annotation(
+    #     x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
+    #     y=50.22,
+    #     text="<i>FCR Saturation</i>",
+    #     showarrow=False,
+    #     font=dict(size=12)
+    # )
+
+    # Add a vertical line at 12:33:16.5
+    # t_first_event = pd.to_datetime('2025-04-28 12:33:16.5').tz_localize('Europe/Madrid')
+    # fig.add_vline(x=t_first_event, line_dash="dash", line_color="gray")
+
+    # t_second_event = pd.to_datetime('2025-04-28 12:33:17.8').tz_localize('Europe/Madrid')
+    # fig.add_vline(x=t_second_event, line_dash="dash", line_color="gray")
+
+    # t_france_disconnection = pd.to_datetime('2025-04-28 12:33:20.3').tz_localize('Europe/Madrid')
+    # fig.add_vline(x=t_france_disconnection, line_dash="dash", line_color="gray")
+
+    # Update layout
+    fig.update_layout(
+        title=title_text,
+        title_font=dict(size=24),
+        xaxis_title=None,
+        yaxis_title='Frequency [Hz]',
+        yaxis_title_font=dict(size=20),
+        yaxis_range=[ymin, ymax],
+        showlegend=True,
+        legend=dict(
+            font=dict(size=24),
+            orientation='h',
+            yanchor='bottom',
+            y=1.0,
+            xanchor='right',
+            x=1
+        ),
+        xaxis=dict(
+            tickfont=dict(size=20),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray',
+            dtick='900000' # 15 minutes in milliseconds
+        ),
+        yaxis=dict(
+            tickfont=dict(size=20),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray'
+        ),
+        height = 800,
+        width = 1600,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=50, r=50, t=90, b=60)
+    )
+    
+    return fig
+
+def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_comparison_end=None):
+    """Creates a frequency comparison plot for multiple time series.
+    
+    Args:
+        series_to_plot (dict): Dictionary mapping series names to pandas Series objects
+        t_comparison_start (pd.Timestamp, optional): Start time for comparison. Defaults to earliest timestamp.
+        t_comparison_end (pd.Timestamp, optional): End time for comparison. Defaults to latest timestamp.
+    
+    Returns:
+        plotly.graph_objects.Figure: The comparison plot figure
+    """
+    # Set default start/end times if not provided
+    if t_comparison_start is None:
+        t_comparison_start = min([t_min for t_min in [series.index.min() for series in series_to_plot.values()] if t_min is not None])
+    
+    if t_comparison_end is None:
+        t_comparison_end = max([t_max for t_max in [series.index.max() for series in series_to_plot.values()] if t_max is not None])
+
+    fig = go.Figure()
+
+    for series_name, series in series_to_plot.items():
+        fig.add_trace(go.Scatter(
+            x=series.loc[t_comparison_start:t_comparison_end].index,
+            y=series.loc[t_comparison_start:t_comparison_end],
+            mode='lines',
+            name=series_name,
+        ))
+
+    # Add standard frequency bands
+    ymin = 49.75
+    ymax = 50.25
+    fig.add_hrect(y0=ymin, y1=49.2, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=ymin, y1=49.8, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=50.2, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+    fig.add_hrect(y0=50.8, y1=ymax, fillcolor="gray", opacity=0.1, line_width=0)
+
+    # Note FCR saturation
+    fig.add_annotation(
+        x=list(series_to_plot.values())[0].loc[t_comparison_start:t_comparison_end].index[0] + pd.Timedelta(seconds=0.2),
+        y=49.78,
+        text="<i>FCR Saturation</i>",
+        showarrow=False,
+        font=dict(size=12)
+    )
+
+    # Update layout
+    fig.update_layout(
+        title='Frequency Comparison: Toledo vs Malaga',
+        title_font=dict(size=24),
+        xaxis_title=None,
+        yaxis_title='Frequency [Hz]',
+        yaxis_title_font=dict(size=20),
+        yaxis_range=[ymin, ymax],
+        showlegend=True,
+        legend=dict(
+            font=dict(size=24),
+            orientation='h',
+            yanchor='bottom',
+            y=1.0,
+            xanchor='right',
+            x=1
+        ),
+        xaxis=dict(
+            tickfont=dict(size=20),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray',
+            dtick='900000'  # 15 minutes in milliseconds
+        ),
+        yaxis=dict(
+            tickfont=dict(size=20),
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray'
+        ),
+        height=800,
+        width=1600,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=50, r=50, t=90, b=60)
+    )
+
+    return fig
+
 ## RoCoF Plots
 ### Comparison Plot
 def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None):

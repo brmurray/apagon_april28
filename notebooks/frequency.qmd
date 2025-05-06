@@ -42,6 +42,37 @@ pmu_df = pmu_df_raw.dropna(subset=['ES_Malaga'])
 
 print("First PMU timestamp: ", pmu_df_raw.index.min())
 print("Last PMU timestamp: ", pmu_df_raw.index.max())
+
+# ------------------------------------------------------------
+# Load Toledo data
+toledo_data = pd.read_csv(shareable_dir / "external" / 'toledo_data.csv')
+toledo_data['time'] = pd.to_datetime(toledo_data['time'])
+toledo_data = toledo_data.set_index('time')
+toledo_data.index = toledo_data.index.tz_localize('Europe/Madrid')
+
+# Plot Toledo L1 Frequency
+t_toledo_freq_start = pd.to_datetime('2025-04-28 11:00:00').tz_localize('Europe/Madrid')
+t_toledo_freq_end = pd.to_datetime('2025-04-28 12:35:00').tz_localize('Europe/Madrid')
+fig = plots.generic_frequency_plot(toledo_data['AnalyzerL1Frequency'], t_toledo_freq_start, t_toledo_freq_end, 'Toledo L1 Frequency', ymin=49.75, ymax=50.25)
+fig.show()
+fig.write_image(figures_dir / f"toledo_l1_frequency_plot.png")
+
+
+
+```
+
+
+## Due Diligence: compare Toledo and Malaga
+```{python}
+# Example usage:
+series_to_plot = {
+    'ES_Malaga': pmu_df['ES_Malaga'],
+    'Toledo L1': toledo_data['AnalyzerL1Frequency']
+}
+
+t_comparison_start = pd.to_datetime('2025-04-28 11:00:00').tz_localize('Europe/Madrid')
+fig = plots.plot_N_frequency_comparison(series_to_plot, t_comparison_start)
+fig.show()
 ```
 
 # Grid Events
@@ -175,7 +206,7 @@ fig.write_image(figures_dir / "rocof_closeup.png")
 # Spectrogram
 - SSOs range from 7-30 Hz [@neso_SSOIdentificationWP1_2023]
 - ES_Malaga has 100ms sample time (10 Hz) -> Fastest we could see would be 20 Hz
-- April 28 oscillations appear ~=5 seconds
+- Period of April 28 oscillations ~=4.3 seconds
 ```{python}
 reload(plots)
 
