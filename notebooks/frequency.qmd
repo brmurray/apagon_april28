@@ -139,33 +139,34 @@ fig.write_image(figures_dir / "dfd.png")
 ```
 
 
-## Separation
+## Loss of Generation & Separation
 ```{python}
-# Separation
+# Loss of Generation
 reload(plots)
 
 # Plot Parameters
 pmus_to_plot = pmu_aliases
-first_loss = pd.to_datetime('2025-04-28 12:33:16.5').tz_localize('Europe/Madrid')
-second_loss = pd.to_datetime('2025-04-28 12:33:17.8').tz_localize('Europe/Madrid')
+first_loss = pd.to_datetime('2025-04-28 12:32:57.2').tz_localize('Europe/Madrid')
+second_loss = pd.to_datetime('2025-04-28 12:33:16.5').tz_localize('Europe/Madrid')
+third_loss = pd.to_datetime('2025-04-28 12:33:17.8').tz_localize('Europe/Madrid')
 separation = pd.to_datetime('2025-04-28 12:33:19.4').tz_localize('Europe/Madrid')
-events = [first_loss, second_loss, separation]
+events = [first_loss, second_loss, third_loss, separation]
 
-separation_t_start = pd.to_datetime('2025-04-28 12:32:45').tz_localize('Europe/Madrid')
-separation_t_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')
+t_loss_start = pd.to_datetime('2025-04-28 12:32:45').tz_localize('Europe/Madrid')
+t_loss_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')
 
 fig = plots.create_frequency_plot(
     pmu_df = pmu_df,
-    start_time = separation_t_start,
-    end_time = separation_t_end,
+    start_time = t_loss_start,
+    end_time = t_loss_end,
     pmu_aliases = pmu_aliases,
-    title_text = "Separation",
+    title_text = "Loss of Generation -> Separation",
     ymin=49.75,
     ymax=50.05,
     events = events
 )
 fig.show()
-fig.write_image(figures_dir / "separation.png")
+fig.write_image(figures_dir / "log_and_separation.png")
 ```
 
 # ROCOF
