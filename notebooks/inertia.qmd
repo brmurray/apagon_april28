@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly
 import plotly.graph_objects as go
+from PIL import Image 
 import numpy as np
 from datetime import datetime
 import pytz
@@ -260,7 +261,6 @@ fig.update_layout(
 )
 
 # Add Lemur logo
-from PIL import Image 
 fig.add_layout_image(
     dict(
         source=Image.open(figures_dir / "lemur_logo_yellow.png"),
@@ -268,12 +268,30 @@ fig.add_layout_image(
         yref="paper",
         x=0,
         y=0,
-        sizex=0.2,
-        sizey=0.2,
+        sizex=0.15,
+        sizey=0.15,
         xanchor="left",
         yanchor="bottom"
     )
 )
+
+# Add text annotation in upper right
+fig.add_annotation(
+    text="analysis: lemur, uniovi | data: entso-e",
+    xref="paper",
+    yref="paper",
+    x=1,
+    y=1,
+    xanchor="right",
+    yanchor="top",
+    showarrow=False,
+    font=dict(
+        size=12,
+        color="gray"
+    ),
+    bgcolor="white"
+)
+
 
 
 
@@ -429,7 +447,7 @@ fig.update_layout(
 )
 
 # Add Lemur logo
-from PIL import Image 
+
 fig.add_layout_image(
     dict(
         source=Image.open(figures_dir / "lemur_logo_yellow.png"),
