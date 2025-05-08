@@ -190,7 +190,7 @@ rocof_es_df['rocof_2000ms'] = rocof_2000ms_df['ES_Malaga']
 pmus_to_plot = pmu_aliases
 t_rocof_overview_start = pd.to_datetime('2025-04-28 12:13:00').tz_localize('Europe/Madrid')
 t_rocof_overview_end = pd.to_datetime('2025-04-28 12:34:00').tz_localize('Europe/Madrid')
-fig = plots.create_rocof_comparison_plot(rocof_df, t_rocof_overview_start, t_rocof_overview_end, pmus_to_plot, "ROCOF", lemur_x = 0.15, lemur_y = 0.02)
+fig = plots.create_rocof_comparison_plot(rocof_df, t_rocof_overview_start, t_rocof_overview_end, pmus_to_plot, "Rate of Change of Frequency (RoCoF)", lemur_x = 0.15, lemur_y = 0.02)
 fig.show()
 fig.write_image(figures_dir / "rocof_overview.png")
 

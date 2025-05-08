@@ -120,6 +120,22 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
         )
     )
     
+    fig.add_annotation(
+        text="analysis: lemur, uniovi | data: gridradar",
+        xref="paper",
+        yref="paper",
+        x=1,
+        y=1,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="gray"
+        ),
+        bgcolor="white"
+    )
+    
     return fig
 
 def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, ymax=None, lemur_x = 0.02, lemur_y = 0.02):
@@ -230,6 +246,22 @@ def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, 
         )
     )
     
+    fig.add_annotation(
+        text="analysis: lemur, uniovi | data: gridradar",
+        xref="paper",
+        yref="paper",
+        x=1,
+        y=1,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="gray"
+        ),
+        bgcolor="white"
+    )
+    
     return fig
 
 def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_comparison_end=None, lemur_x = 0.02, lemur_y = 0.02):
@@ -327,6 +359,22 @@ def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_compa
             xanchor="left",
             yanchor="bottom"
         )
+    )
+
+    fig.add_annotation(
+        text="analysis: lemur, uniovi | data: gridradar",
+        xref="paper",
+        yref="paper",
+        x=1,
+        y=1,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="gray"
+        ),
+        bgcolor="white"
     )
 
     return fig
@@ -453,6 +501,23 @@ def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, titl
         )
     )
     
+    fig.add_annotation(
+        text="analysis: lemur, uniovi | data: gridradar",
+        xref="paper",
+        yref="paper",
+        x=1,
+        y=1,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="gray"
+        ),
+        bgcolor="white"
+    )
+    
+    
     return fig
 
 
@@ -512,7 +577,7 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
     fig.add_vrect(x0=pd.to_datetime('2025-04-28 12:33:20.4').tz_localize('Europe/Madrid'), x1=end_time, fillcolor="gray", opacity=0.7, line_width=0)
     fig.add_annotation(
         x = end_time,
-        y=min(1.3,ymax),
+        y=max(-1.3,ymin),
         text="<i>ES_Malaga PMU data<br>is unreliable after blackout</i>",
         showarrow=False,
         font=dict(size=12),
@@ -544,10 +609,12 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
     fig.update_layout(
         title=dict(
             text=title_text,
-            x=0.5,
-            y=0.95,
             font=dict(size=24)
         ),
+        xaxis_title=None,
+        yaxis_title='Rate of Change of Frequency [Hz/s]',
+        yaxis_title_font=dict(size=20),
+        yaxis_range=[ymin, ymax],
         xaxis=dict(
             tickfont=dict(size=20),
             showgrid=True,
@@ -591,6 +658,22 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
             xanchor="left",
             yanchor="bottom"
         )
+    )
+
+    fig.add_annotation(
+        text="analysis: lemur, uniovi | data: gridradar",
+        xref="paper",
+        yref="paper",
+        x=1,
+        y=1,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="gray"
+        ),
+        bgcolor="white"
     )
 
     return fig
