@@ -87,7 +87,7 @@ overview_t_end = pd.to_datetime('2025-04-28 12:45:00').tz_localize('Europe/Madri
 
 fig = plots.create_frequency_plot(pmu_df, overview_t_start, overview_t_end, pmu_aliases, "Grid Frequency Measurements Across Europe")
 fig.show()
-fig.write_image(figures_dir / "overview.png", scale=1)
+fig.write_image(figures_dir / "frequency_overview.png", scale=1)
 ```
 
 ## Early Oscillations
@@ -102,7 +102,7 @@ oscillation1_t_end = pd.to_datetime('2025-04-28 12:17:30').tz_localize('Europe/M
 
 fig = plots.create_frequency_plot(pmu_df, oscillation1_t_start, oscillation1_t_end, pmu_aliases, "Early Oscillations")
 fig.show()
-fig.write_image(figures_dir / "oscillation1.png")
+fig.write_image(figures_dir / "frequency_oscillation1.png")
 ```
 
 
@@ -118,7 +118,7 @@ oscillation2_t_end = pd.to_datetime('2025-04-28 12:22:00').tz_localize('Europe/M
 
 fig = plots.create_frequency_plot(pmu_df, oscillation2_t_start, oscillation2_t_end, pmu_aliases, "Bigger Oscillations")
 fig.show()
-fig.write_image(figures_dir / "oscillation2.png")
+fig.write_image(figures_dir / "frequency_oscillation2.png")
 ```
 
 
@@ -134,7 +134,7 @@ dfd_t_end = pd.to_datetime('2025-04-28 12:30:50').tz_localize('Europe/Madrid')
 
 fig = plots.create_frequency_plot(pmu_df, dfd_t_start, dfd_t_end, pmu_aliases, "DFD @ 12:30")
 fig.show()
-fig.write_image(figures_dir / "dfd.png")
+fig.write_image(figures_dir / "frequency_dfd.png")
 ```
 
 
@@ -165,7 +165,7 @@ fig = plots.create_frequency_plot(
     events = events
 )
 fig.show()
-fig.write_image(figures_dir / "log_and_separation.png")
+fig.write_image(figures_dir / "frequency_loss_and_separation.png")
 ```
 
 # ROCOF
