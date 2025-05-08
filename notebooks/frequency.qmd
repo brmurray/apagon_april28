@@ -43,27 +43,26 @@ pmu_df = pmu_df_raw.dropna(subset=['ES_Malaga'])
 print("First PMU timestamp: ", pmu_df_raw.index.min())
 print("Last PMU timestamp: ", pmu_df_raw.index.max())
 
-# ------------------------------------------------------------
+# # ------------------------------------------------------------
 # Load Toledo data
 toledo_data = pd.read_csv(shareable_dir / "external" / 'toledo_data.csv')
 toledo_data['time'] = pd.to_datetime(toledo_data['time'])
 toledo_data = toledo_data.set_index('time')
 toledo_data.index = toledo_data.index.tz_localize('Europe/Madrid')
 
-# Plot Toledo L1 Frequency
-t_toledo_freq_start = pd.to_datetime('2025-04-28 11:00:00').tz_localize('Europe/Madrid')
-t_toledo_freq_end = pd.to_datetime('2025-04-28 12:35:00').tz_localize('Europe/Madrid')
-fig = plots.generic_frequency_plot(toledo_data['AnalyzerL1Frequency'], t_toledo_freq_start, t_toledo_freq_end, 'Toledo L1 Frequency', ymin=49.75, ymax=50.25)
-fig.show()
-fig.write_image(figures_dir / f"toledo_l1_frequency_plot.png")
-
-
+# # Plot Toledo L1 Frequency
+# t_toledo_freq_start = pd.to_datetime('2025-04-28 11:00:00').tz_localize('Europe/Madrid')
+# t_toledo_freq_end = pd.to_datetime('2025-04-28 12:35:00').tz_localize('Europe/Madrid')
+# fig = plots.generic_frequency_plot(toledo_data['AnalyzerL1Frequency'], t_toledo_freq_start, t_toledo_freq_end, 'Toledo L1 Frequency', ymin=49.75, ymax=50.25)
+# fig.show()
+# fig.write_image(figures_dir / f"toledo_l1_frequency_plot.png")
 
 ```
 
 
 ## Due Diligence: compare Toledo and Malaga
 ```{python}
+reload(plots)
 # Example usage:
 series_to_plot = {
     'ES_Malaga': pmu_df['ES_Malaga'],
@@ -191,14 +190,14 @@ rocof_es_df['rocof_2000ms'] = rocof_2000ms_df['ES_Malaga']
 pmus_to_plot = pmu_aliases
 t_rocof_overview_start = pd.to_datetime('2025-04-28 12:13:00').tz_localize('Europe/Madrid')
 t_rocof_overview_end = pd.to_datetime('2025-04-28 12:34:00').tz_localize('Europe/Madrid')
-fig = plots.create_rocof_comparison_plot(rocof_df, t_rocof_overview_start, t_rocof_overview_end, pmus_to_plot, "ROCOF")
+fig = plots.create_rocof_comparison_plot(rocof_df, t_rocof_overview_start, t_rocof_overview_end, pmus_to_plot, "ROCOF", lemur_x = 0.15, lemur_y = 0.02)
 fig.show()
 fig.write_image(figures_dir / "rocof_overview.png")
 
 # RoCoF Closeup Plot
 t_rocof_closeup_start = pd.to_datetime('2025-04-28 12:33:10').tz_localize('Europe/Madrid')
 t_rocof_closeup_end = pd.to_datetime('2025-04-28 12:33:25').tz_localize('Europe/Madrid') 
-fig = plots.create_rocof_closeup_plot(rocof_es_df, t_rocof_closeup_start, t_rocof_closeup_end, "ROCOF Moving Averages", ymin=-1.5, ymax=0.25)
+fig = plots.create_rocof_closeup_plot(rocof_es_df, t_rocof_closeup_start, t_rocof_closeup_end, "ROCOF Moving Averages", ymin=-1.5, ymax=0.25, lemur_x = 0.02, lemur_y = 0.4)
 fig.show()
 fig.write_image(figures_dir / "rocof_closeup.png")
 ```

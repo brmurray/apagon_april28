@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly
 import plotly.graph_objects as go
+from PIL import Image 
 import numpy as np
 from datetime import datetime
 import pytz
@@ -16,7 +17,7 @@ from apagon_april28.constants import pmu_colors, pmu_aliases # from gridradar
 
 # Basic Frequency Plots
 ## Frequency Plot
-def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None):
+def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None, lemur_x = 0.02, lemur_y = 0.02):
     
     df_to_plot = pmu_df.loc[start_time:end_time]
     
@@ -104,9 +105,24 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
         margin=dict(l=50, r=50, t=90, b=60)
     )
     
+    # Add Lemur logo
+    fig.add_layout_image(
+        dict(
+            source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+            xref="paper",
+            yref="paper",
+            x=lemur_x,
+            y=lemur_y,
+            sizex=0.2,
+            sizey=0.2,
+            xanchor="left",
+            yanchor="bottom"
+        )
+    )
+    
     return fig
 
-def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, ymax=None):
+def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, ymax=None, lemur_x = 0.02, lemur_y = 0.02):
     
     df_to_plot = series.loc[start_time:end_time]
     
@@ -199,9 +215,24 @@ def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, 
         margin=dict(l=50, r=50, t=90, b=60)
     )
     
+    # Add Lemur logo
+    fig.add_layout_image(
+        dict(
+            source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+            xref="paper",
+            yref="paper",
+            x=lemur_x,
+            y=lemur_y,
+            sizex=0.2,
+            sizey=0.2,
+            xanchor="left",
+            yanchor="bottom"
+        )
+    )
+    
     return fig
 
-def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_comparison_end=None):
+def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_comparison_end=None, lemur_x = 0.02, lemur_y = 0.02):
     """Creates a frequency comparison plot for multiple time series.
     
     Args:
@@ -282,12 +313,27 @@ def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_compa
         paper_bgcolor='white',
         margin=dict(l=50, r=50, t=90, b=60)
     )
+    
+    # Add Lemur logo
+    fig.add_layout_image(
+        dict(
+            source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+            xref="paper",
+            yref="paper",
+            x=lemur_x,
+            y=lemur_y,
+            sizex=0.2,
+            sizey=0.2,
+            xanchor="left",
+            yanchor="bottom"
+        )
+    )
 
     return fig
 
 ## RoCoF Plots
 ### Comparison Plot
-def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None):
+def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, lemur_x = 0.02, lemur_y = 0.02):
     """Creates a plot comparing Rate of Change of Frequency (RoCoF) measurements from multiple PMUs.
     
     Args:
@@ -391,11 +437,27 @@ def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, titl
         margin=dict(l=50, r=50, t=90, b=60)
     )
     
+
+    # Add Lemur logo
+    fig.add_layout_image(
+        dict(
+            source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+            xref="paper",
+            yref="paper",
+            x=lemur_x,
+            y=lemur_y,
+            sizex=0.2,
+            sizey=0.2,
+            xanchor="left",
+            yanchor="bottom"
+        )
+    )
+    
     return fig
 
 
 ### Closeup Plot
-def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-1.5, ymax=1.5):
+def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-1.5, ymax=1.5, lemur_x = 0.02, lemur_y = 0.02):
     """
     Create a plot comparing different ROCOF calculation window sizes for a given time period.
 
@@ -513,6 +575,21 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
             y=1.0,
             xanchor='right',
             x=1
+        )
+    )
+    
+    # Add Lemur logo
+    fig.add_layout_image(
+        dict(
+            source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+            xref="paper",
+            yref="paper",
+            x=lemur_x,
+            y=lemur_y,
+            sizex=0.2,
+            sizey=0.2,
+            xanchor="left",
+            yanchor="bottom"
         )
     )
 
