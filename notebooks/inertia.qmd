@@ -21,19 +21,18 @@ from apagon_april28.constants import generation_type_colors, generation_type_col
 ```
 
 # Inertia on April 28
-## Generation data
 ```{python}
-# Load generation data from ENTSO-E file.
-def load_entsoe_generation_data(path_cta_es_2025):
+# load generation data from entsoe
+def load_entsoe_generation_data(path_cta_es_csv):
     """Load and process generation data from ENTSO-E file.
     
     Args:
-        path_cta_es_2025: Path to the CSV file containing generation data
+        path_cta_es_csv: Path to the CSV file containing generation data
         
     Returns:
         pd.DataFrame: Processed generation data with datetime index
     """
-    gen_es_2025_df = pd.read_csv(path_cta_es_2025)
+    gen_es_2025_df = pd.read_csv(path_cta_es_csv)
     gen_es_2025_df['datetime'] = pd.to_datetime(gen_es_2025_df['MTU'].str.split(' - ').str[0], format='%d.%m.%Y %H:%M')
     gen_es_2025_df = gen_es_2025_df.set_index('datetime')
     gen_es_2025_df = gen_es_2025_df.drop(['MTU', 'Area'], axis=1)
@@ -47,258 +46,378 @@ def load_entsoe_generation_data(path_cta_es_2025):
 
     # Convert all columns to numeric, set errors to NaN
     gen_es_2025_df = gen_es_2025_df.apply(pd.to_numeric, errors='coerce')
+
+    gen_es_2025_df['Total Generation [MW]'] = gen_es_2025_df.sum(axis=1)
     
     return gen_es_2025_df
 
 
-# Load inertia constants (from entsoe_InertiaRoCoF_2020)
-inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
-
-
+gen_df_list = []
 use_these_gen_cols = ['Nuclear', 'Fossil Hard coal', 'Fossil Gas', 'Hydro Water Reservoir',
        'Hydro Run-of-river and poundage', 'Hydro Pumped Storage',
-       'Wind Onshore', 'Biomass', 'Other renewable', 'Waste', 'Solar']
+       'Wind Onshore', 'Biomass', 'Other renewable', 'Waste', 'Solar', 'Total Generation [MW]']
 
-gen_df_list, total_gen_list, pct_es_df_list, inertia_df_list = [], [], [], []
-for year in [2015, 2023, 2024, 2025]:
-    gen_es_df = load_entsoe_generation_data(shareable_dir / 'external' / f'cta_es_Actual Generation per Production Type_{year}01010000-{year+1}01010000.csv')
+for year in range(2015, 2026):
+    gen_es_df = load_entsoe_generation_data(shareable_dir / 'entsoe' / f'cta_es_Actual Generation per Production Type_{year}01010000-{year+1}01010000.csv')
     gen_es_df = gen_es_df[use_these_gen_cols]
-
-    # Remove columns with all values below 10 MW
-    # Find columns where maximum generation is less than 50 MW
-    low_gen_cols = gen_es_df.columns[gen_es_df.max() < 50]
-    gen_es_df = gen_es_df.drop(columns=low_gen_cols)
-
-
-    # Get the total generation and the percentage of each generation type
-    gen_es_df['Total'] = gen_es_df.sum(axis=1)
-    pct_es_df = gen_es_df.div(gen_es_df['Total'], axis=0)
-
     gen_df_list.append(gen_es_df)
-    #total_gen_list.append(total_gen)
-    pct_es_df_list.append(pct_es_df)
+
+gen_df = pd.concat(gen_df_list)
+
+# get generation pct
+gen_pct_df = gen_df.div(gen_df['Total Generation [MW]'], axis=0)
+
+```
 
 
-    # Calculate inertia
-    inertia_df = pd.DataFrame(index=pct_es_df.index)
-    for col in pct_es_df.columns:
-        if col == 'Total':
-            print(f"Skipping Total column ({year})")
-            continue
-        h_value = inertia_constants.loc[inertia_constants['generation_type'] == col, 'h_entsoe_sec'].values
-        if len(h_value) > 0:  # Only multiply if we have an inertia constant for this type
-            inertia_df[col] = pct_es_df[col] * h_value[0]
-        else:
-            print(f"No inertia constant for {col}")
+# Inertia estimation
+```{python}
+# Inertia estimation
 
-    inertia_df['Total Inertia'] = inertia_df.sum(axis=1)
-    inertia_df['year'] = year   
-    inertia_df['month'] = inertia_df.index.month
-    inertia_df['day'] = inertia_df.index.day
-    inertia_df['hour'] = inertia_df.index.hour.astype(int)
-    # Replace values less than 0.1 with NaN
-    inertia_df['Total Inertia'] = inertia_df['Total Inertia'].mask(inertia_df['Total Inertia'] < 0.1)
+# Load inertia constants
+inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
 
-    synthetic_inertia_constant = 4
-    synthetic_inertia_adoption_rate = 0.333
-    inertia_df['Synthetic Inertia'] = pct_es_df['Solar'] * synthetic_inertia_constant * synthetic_inertia_adoption_rate
+# Filter inertia constants to only include generation types in use_these_gen_cols
+inertia_constants = inertia_constants[inertia_constants['generation_type'].isin(use_these_gen_cols)]
+inertia_constants = inertia_constants[['generation_type', 'h_entsoe_sec']]
+inertia_constants = inertia_constants.set_index('generation_type').transpose()
 
-    inertia_df_list.append(inertia_df)
+inertia_df = gen_df.copy(deep=True)
+inertia_df = inertia_df.drop(columns=['Total Generation [MW]'])
+# Multiply each column in inertia_df by corresponding value in inertia_constants
+for col in inertia_df.columns:
+    inertia_df[col] = inertia_df[col] * inertia_constants[col].iloc[0]
+inertia_df['Total Inertia [MWs]'] = inertia_df.sum(axis=1)
 
-# concatenate all inertia dataframes
-inertia_df = pd.concat(inertia_df_list)
+
+# Replace values less than 0.1 with NaN
+inertia_df['Total Inertia [MWs]'] = inertia_df['Total Inertia [MWs]'].mask(inertia_df['Total Inertia [MWs]'] < 0.1)
+
+
+
+inertia_eq_df = inertia_df.copy(deep=True)
+inertia_eq_df = inertia_eq_df.join(gen_df['Total Generation [MW]'], how='left')
+inertia_eq_df['Total Equivalent Inertia [s]'] = inertia_eq_df['Total Inertia [MWs]'] / inertia_eq_df['Total Generation [MW]']
+inertia_eq_df = inertia_eq_df.drop(columns=['Total Generation [MW]'])
+#inertia_eq_df['Total Inertia [MWs]'] = inertia_eq_df['Total Inertia [MWs]'].mask(inertia_eq_df['Total Inertia [MWs]'] < 0.1)
+
+```
+
+
+
+## Generation data
+```{python}
+# # Load generation data from ENTSO-E file.
+# def load_entsoe_generation_data(path_cta_es_2025):
+#     """Load and process generation data from ENTSO-E file.
+    
+#     Args:
+#         path_cta_es_2025: Path to the CSV file containing generation data
+        
+#     Returns:
+#         pd.DataFrame: Processed generation data with datetime index
+#     """
+#     gen_es_2025_df = pd.read_csv(path_cta_es_2025)
+#     gen_es_2025_df['datetime'] = pd.to_datetime(gen_es_2025_df['MTU'].str.split(' - ').str[0], format='%d.%m.%Y %H:%M')
+#     gen_es_2025_df = gen_es_2025_df.set_index('datetime')
+#     gen_es_2025_df = gen_es_2025_df.drop(['MTU', 'Area'], axis=1)
+
+#     # Rename columns by removing " - Actual Aggregated [MW]"
+#     gen_es_2025_df = gen_es_2025_df.drop('Hydro Pumped Storage - Actual Consumption [MW]', axis=1)
+#     gen_es_2025_df.columns = gen_es_2025_df.columns.str.replace(' - Actual Aggregated [MW]', '')
+
+#     # Sort columns by generation_type_column_order
+#     gen_es_2025_df = gen_es_2025_df[generation_type_column_order]
+
+#     # Convert all columns to numeric, set errors to NaN
+#     gen_es_2025_df = gen_es_2025_df.apply(pd.to_numeric, errors='coerce')
+    
+#     return gen_es_2025_df
+
+
+# # Load inertia constants (from entsoe_InertiaRoCoF_2020)
+# inertia_constants = pd.read_csv(root / 'apagon_april28' / 'inertia_constants.csv')
+
+
+
+
+# gen_df_list, total_gen_list, pct_es_df_list, inertia_df_list = [], [], [], []
+# for year in [2015, 2023, 2024, 2025]:
+#     gen_es_df = load_entsoe_generation_data(shareable_dir / 'external' / f'cta_es_Actual Generation per Production Type_{year}01010000-{year+1}01010000.csv')
+#     gen_es_df = gen_es_df[use_these_gen_cols]
+
+#     # Remove columns with all values below 10 MW
+#     # Find columns where maximum generation is less than 50 MW
+#     low_gen_cols = gen_es_df.columns[gen_es_df.max() < 50]
+#     gen_es_df = gen_es_df.drop(columns=low_gen_cols)
+
+
+#     # Get the total generation and the percentage of each generation type
+#     gen_es_df['Total'] = gen_es_df.sum(axis=1)
+#     pct_es_df = gen_es_df.div(gen_es_df['Total'], axis=0)
+
+#     gen_df_list.append(gen_es_df)
+#     #total_gen_list.append(total_gen)
+#     pct_es_df_list.append(pct_es_df)
+
+
+#     # Calculate inertia
+#     inertia_df = pd.DataFrame(index=pct_es_df.index)
+#     for col in pct_es_df.columns:
+#         if col == 'Total':
+#             print(f"Skipping Total column ({year})")
+#             continue
+#         h_value = inertia_constants.loc[inertia_constants['generation_type'] == col, 'h_entsoe_sec'].values
+#         if len(h_value) > 0:  # Only multiply if we have an inertia constant for this type
+#             inertia_df[col] = pct_es_df[col] * h_value[0]
+#         else:
+#             print(f"No inertia constant for {col}")
+
+#     inertia_df['Total Inertia'] = inertia_df.sum(axis=1)
+#     inertia_df['year'] = year   
+#     inertia_df['month'] = inertia_df.index.month
+#     inertia_df['day'] = inertia_df.index.day
+#     inertia_df['hour'] = inertia_df.index.hour.astype(int)
+#     # Replace values less than 0.1 with NaN
+#     inertia_df['Total Inertia'] = inertia_df['Total Inertia'].mask(inertia_df['Total Inertia'] < 0.1)
+
+#     synthetic_inertia_constant = 4
+#     synthetic_inertia_adoption_rate = 0.333
+#     inertia_df['Synthetic Inertia'] = pct_es_df['Solar'] * synthetic_inertia_constant * synthetic_inertia_adoption_rate
+
+#     inertia_df_list.append(inertia_df)
+
+# # concatenate all dataframes
+# gen_df = pd.concat(gen_df_list)
+# inertia_df = pd.concat(inertia_df_list)
 ``` 
 
 
-## Inertia Estimation
+## Inertia Estimation Spaghetti Plot
 - inertia constants from entsoe_InertiaRoCoF_2020 ("Inertia and Rate of Change of Frequency (RoCoF)", 16 Dec 2020)
 ```{python}
 
-# Down-select to April data only
+def create_inertia_spaghetti_plot(daily_inertia, inertia_column, years, add_synthetic_inertia=False):
+    # Group by date to get daily profiles
+    # Reset index to ensure hour=0 is included, then group and set index again
+    daily_inertia = daily_inertia.reset_index()
+    daily_inertia['year'] = daily_inertia['datetime'].dt.year
+    daily_inertia['month'] = daily_inertia['datetime'].dt.month  
+    daily_inertia['day'] = daily_inertia['datetime'].dt.day
+    daily_inertia['hour'] = daily_inertia['datetime'].dt.hour.astype(int)
+    daily_inertia = daily_inertia.drop(columns=['datetime'])
+    daily_inertia = daily_inertia.set_index(['year', 'month', 'day', 'hour']).groupby(level=[0,1,2,3]).mean()
 
-# Group by date to get daily profiles
-# Reset index to ensure hour=0 is included, then group and set index again
-daily_inertia = inertia_df.reset_index().groupby(['year', 'month', 'day', 'hour']).mean()
+    # Down-select to April data only
+    # .xs means "cross-section"
+    april_inertia = daily_inertia.xs(4, level='month')
 
-april_inertia = daily_inertia.xs(4, level='month')
+    # Plot Parameters
+    # Color scale for years
+    colors = ['#ADD8E6', '#90EE90', '#D3D3D3', '#808080']  # light blue, light green, light grey, medium grey
+    colors_darker = ['#87CEEB', '#98FB98', '#D3D3D3', '#808080']  # darker versions of the same colors
+    year_colors = dict(zip(years, colors))
 
-# Create figure
-fig = go.Figure()
 
-# Get unique year-day combinations
-years = april_inertia.index.get_level_values('year').unique()
-days = april_inertia.index.get_level_values('day').unique()
+    ymax = {
+        "Total Inertia [MWs]": 120*1000,
+        "Total Equivalent Inertia [s]": 4.5
+    }
 
-# Color scale for years
-colors = ['#ADD8E6', '#90EE90', '#D3D3D3', '#808080']  # light blue, light green, light grey, medium grey
-colors_darker = ['#87CEEB', '#98FB98', '#D3D3D3', '#808080']  # darker versions of the same colors
-year_colors = dict(zip(years, colors))
+    text_y_bump = {
+        "Total Inertia [MWs]": -10000,
+        "Total Equivalent Inertia [s]": -0.2
+    }
 
-# Plot each day as a separate line
-text_x_bump = 0.9
-text_y_bump = -0.2
-for i, year in enumerate(years):
-    for day in days:
-        try:
-            # Get data for this year/day combination
-            day_data = april_inertia.xs((year, day), level=['year', 'day'])
 
-            if day == 28 and year == 2025:
-                continue
-            
-            fig.add_trace(
-                go.Scatter(
-                    x=day_data.index.get_level_values('hour'),
-                    y=day_data['Total Inertia'],
-                    mode='lines',
-                    line=dict(color=year_colors[year], width=1),
-                    name=f'{year}',
-                    hovertemplate=f"Year: {year}<br>Day: {day}<br>Hour: %{{x}}<br>Inertia: %{{y:.1f}}<extra></extra>",
-                    showlegend=False
+    # Create figure
+    fig = go.Figure()
+
+    # Get unique year-day combinations
+    days = april_inertia.index.get_level_values('day').unique()
+
+    # Plot each day as a separate line
+    text_x_bump = 0.7
+    for i, year in enumerate(years):
+        for day in days:
+            try:
+                # Get data for this year/day combination
+                day_data = april_inertia.xs((year, day), level=['year', 'day'])
+
+                if day == 28 and year == 2025:
+                    continue
+                
+                fig.add_trace(
+                    go.Scatter(
+                        x=day_data.index.get_level_values('hour'),
+                        y=day_data[inertia_column],
+                        mode='lines',
+                        line=dict(color=year_colors[year], width=1),
+                        name=f'{year}',
+                        hovertemplate=f"Year: {year}<br>Day: {day}<br>Hour: %{{x}}<br>Inertia: %{{y:.1f}}<extra></extra>",
+                        showlegend=False
+                    )
                 )
+
+                # Add year annotation at y=4.3
+                fig.add_annotation(
+                    x=12.5 + text_x_bump * i,  # Center of x-axis
+                    y=ymax[inertia_column] + text_y_bump[inertia_column] * i,
+                    text=f"{year}",
+                    showarrow=False,
+                    font=dict(color=colors_darker[i], size=16),
+                    bgcolor='white'
+                )
+            except KeyError:
+                continue  # Skip if this combination doesn't exist
+
+    # Add special trace for April 28, 2025
+    add_april_28_total_inertia = True
+    if add_april_28_total_inertia:
+        april28_data = april_inertia.xs((2025, 28), level=['year', 'day'])
+        # Set values after hour 12 to 0
+        april28_data.loc[april28_data.index.get_level_values('hour') > 12, inertia_column] = np.nan
+        fig.add_trace(
+            go.Scatter(
+                x=april28_data.index.get_level_values('hour'),
+                y=april28_data[inertia_column],
+                mode='lines',
+                line=dict(color='red', width=3),
+                name='April 28, 2025',
+                hovertemplate="April 28, 2025<br>Hour: %{x}<br>Inertia: %{y:.1f}<extra></extra>",
+                showlegend=False
             )
+        )
 
-            # Add year annotation at y=4.3
-            fig.add_annotation(
-                x=12.5 + text_x_bump * i,  # Center of x-axis
-                y=4.5 + text_y_bump * i,
-                text=f"{year}",
-                showarrow=False,
-                font=dict(color=colors_darker[i], size=16),
-                bgcolor='white'
+        fig.add_annotation(
+            x=12.2,  # Center of x-axis
+            y= april28_data.loc[april28_data.index.get_level_values('hour') == 12, inertia_column].values[0],
+            xref="x",
+            xanchor='left',
+            yanchor='middle',
+            text="April 28, 2025, Rotational Inertia",
+            showarrow=False,
+            font=dict(color='red', size=18),
+            bgcolor='rgba(255, 255, 255, 1)'
+        )
+
+    if add_synthetic_inertia:
+        april28_data = april_inertia.xs((2025, 28), level=['year', 'day'])
+        april28_data.loc[april28_data.index.get_level_values('hour') > 12, 'Total Inertia'] = np.nan
+
+        fig.add_trace(
+            go.Scatter(
+                x=april28_data.index.get_level_values('hour'),
+                y=april28_data['Total Inertia'] + april28_data['Synthetic Inertia'],
+                mode='lines',
+                line=dict(color='blue', width=3),
+                name='Synthetic Inertia',
+                hovertemplate="April 28, 2025<br>Hour: %{x}<br>Inertia: %{y:.1f}<extra></extra>",
+                showlegend=False
             )
-        except KeyError:
-            continue  # Skip if this combination doesn't exist
+        )
+
+        fig.add_annotation(
+            x=12.2,  # Center of x-axis
+            y=2.05,
+            xref="x",
+            xanchor='left',
+            yanchor='middle',
+            text="April 28, with Synthetic Inertia",
+            showarrow=False,
+            font=dict(color='blue', size=18),
+            bgcolor='white'
+        )
+
+    # Update layout
+    y_axis_title_options = {
+        "Total Inertia [MWs]": "Spanish Grid Inertia Constant [seconds]",
+        "Total Equivalent Inertia [s]": "Spanish Grid Equivalent Inertia [seconds]"
+    }
 
 
-# Add special trace for April 28, 2025
-add_april_28_total_inertia = True
-if add_april_28_total_inertia:
-    april28_data = april_inertia.xs((2025, 28), level=['year', 'day'])
-    # Set values after hour 12 to 0
-    april28_data.loc[april28_data.index.get_level_values('hour') > 12, 'Total Inertia'] = np.nan
-    fig.add_trace(
-        go.Scatter(
-            x=april28_data.index.get_level_values('hour'),
-            y=april28_data['Total Inertia'],
-            mode='lines',
-            line=dict(color='red', width=3),
-            name='April 28, 2025',
-            hovertemplate="April 28, 2025<br>Hour: %{x}<br>Inertia: %{y:.1f}<extra></extra>",
-            showlegend=False
+    fig.update_layout(
+        title=dict(
+            text="Daily Physical Inertia Profiles in Spain, April 2015-2025<br><sup style='color: gray; font-size: 0.8em;'> </sup>",
+            y=0.95
+        ),
+        xaxis_title=None,
+        yaxis_title=y_axis_title_options[inertia_column],
+        hovermode='x unified',
+        showlegend=True,
+        height=600,
+        width=1200,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(l=50, r=50, t=50, b=50),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray',
+            ticktext=[f'{i:02d}:00' for i in [3,6,9,12,15,18,21]],
+            tickvals=[3,6,9,12,15,18,21]
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='lightgray',
+            range=[0, ymax[inertia_column]]
         )
     )
 
-    fig.add_annotation(
-        x=12.2,  # Center of x-axis
-        y=1.2,
-        xref="x",
-        xanchor='left',
-        yanchor='middle',
-        text="April 28, 2025, Rotational Inertia",
-        showarrow=False,
-        font=dict(color='red', size=18),
-        bgcolor='rgba(255, 255, 255, 1)'
-    )
-
-add_april_28_synthetic_inertia = True   
-if add_april_28_synthetic_inertia:
-    april28_data = april_inertia.xs((2025, 28), level=['year', 'day'])
-    april28_data.loc[april28_data.index.get_level_values('hour') > 12, 'Total Inertia'] = np.nan
-
-    fig.add_trace(
-        go.Scatter(
-            x=april28_data.index.get_level_values('hour'),
-            y=april28_data['Total Inertia'] + april28_data['Synthetic Inertia'],
-            mode='lines',
-            line=dict(color='blue', width=3),
-            name='Synthetic Inertia',
-            hovertemplate="April 28, 2025<br>Hour: %{x}<br>Inertia: %{y:.1f}<extra></extra>",
-            showlegend=False
+    # Add Lemur logo
+    fig.add_layout_image(
+        dict(
+            source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+            xref="paper",
+            yref="paper",
+            x=0,
+            y=0,
+            sizex=0.15,
+            sizey=0.15,
+            xanchor="left",
+            yanchor="bottom"
         )
     )
 
+    # Add text annotation in upper right
     fig.add_annotation(
-        x=12.2,  # Center of x-axis
-        y=2.05,
-        xref="x",
-        xanchor='left',
-        yanchor='middle',
-        text="April 28, with Synthetic Inertia",
-        showarrow=False,
-        font=dict(color='blue', size=18),
-        bgcolor='white'
-    )
-
-
-# Update layout
-fig.update_layout(
-    title=dict(
-        text="Daily Physical Inertia Profiles in Spain, April 2015-2025<br><sup style='color: gray; font-size: 0.8em;'>April 28, 2025 was not unprecedented, and synthetic inertia via solar generators would have kept total inertia within historical norms.</sup>",
-        y=0.95
-    ),
-    xaxis_title=None,
-    yaxis_title='Spanish Grid Inertia Constant [seconds]',
-    hovermode='x unified',
-    showlegend=True,
-    height=600,
-    width=1200,
-    plot_bgcolor='white',
-    paper_bgcolor='white',
-    margin=dict(l=50, r=50, t=50, b=50),
-    xaxis=dict(
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray',
-        ticktext=[f'{i:02d}:00' for i in [3,6,9,12,15,18,21]],
-        tickvals=[3,6,9,12,15,18,21]
-    ),
-    yaxis=dict(
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray'
-    )
-)
-
-# Add Lemur logo
-fig.add_layout_image(
-    dict(
-        source=Image.open(figures_dir / "lemur_logo_yellow.png"),
+        text="analysis: lemur, uniovi | data: entso-e",
         xref="paper",
         yref="paper",
-        x=0,
-        y=0,
-        sizex=0.15,
-        sizey=0.15,
-        xanchor="left",
-        yanchor="bottom"
+        x=1,
+        y=1,
+        xanchor="right",
+        yanchor="top",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="gray"
+        ),
+        bgcolor="white"
     )
+    
+    return fig
+
+
+fig_inertia_MWs = create_inertia_spaghetti_plot(
+    daily_inertia=inertia_df, 
+    inertia_column="Total Inertia [MWs]", 
+    years=[2015, 2024, 2025], 
+    add_synthetic_inertia=False
 )
 
-# Add text annotation in upper right
-fig.add_annotation(
-    text="analysis: lemur, uniovi | data: entso-e",
-    xref="paper",
-    yref="paper",
-    x=1,
-    y=1,
-    xanchor="right",
-    yanchor="top",
-    showarrow=False,
-    font=dict(
-        size=12,
-        color="gray"
-    ),
-    bgcolor="white"
+fig_inertia_MWs.show()
+#fig_inertia_MWs.write_image(figures_dir / "inertia_spain_2015_2025.png")
+
+fig_inertia_equivalent_s = create_inertia_spaghetti_plot(
+    daily_inertia=inertia_eq_df, 
+    inertia_column="Total Equivalent Inertia [s]", 
+    years=[2015, 2024, 2025], 
+    add_synthetic_inertia=False
 )
 
-
-
-
-fig.show()
-fig.write_image(figures_dir / "inertia_spain_2015_2025.png")
-
-
+fig_inertia_equivalent_s.show()
 
 ```
 
@@ -314,21 +433,21 @@ low_gen_cols = gen_es_apr28_df.columns[gen_es_apr28_df.max() < 50]
 gen_es_apr28_df = gen_es_apr28_df.drop(columns=low_gen_cols)
 
 
-
 # Create stacked bar chart
 fig = go.Figure()
 
 # Add traces for each generation type
 for column in gen_es_apr28_df.columns:
-    fig.add_trace(
-        go.Bar(
-            name=column,
-            x=gen_es_apr28_df.index,
-            y=gen_es_apr28_df[column],
-            hovertemplate="%{y:.2f} s<extra></extra>",
-            marker_color=generation_type_colors[column]
+    if column != 'Total':
+        fig.add_trace(
+            go.Bar(
+                name=column,
+                x=gen_es_apr28_df.index,
+                y=gen_es_apr28_df[column],
+                hovertemplate="%{y:.2f} s<extra></extra>",
+                marker_color=generation_type_colors[column]
+            )
         )
-    )
 
 # Update layout
 fig.update_layout(
@@ -338,7 +457,7 @@ fig.update_layout(
     yaxis_title='Spain Generation [MW]',
     yaxis=dict(
         tickmode='array',
-        tickvals=list(range(5000, int(total_gen.max()) + 5000, 5000))
+        tickvals=list(range(5000, int(gen_es_apr28_df['Total'].max()) + 5000, 5000))
     ),
     hovermode='x unified',
     showlegend=True,
@@ -378,9 +497,8 @@ fig.write_image(figures_dir / "generation_mix_spain_20250428.png")
 
 ## Plot Inertia on April 28
 ```{python}
-inertia_contributor_columns = ['Nuclear', 'Fossil Gas', 'Hydro Water Reservoir', 'Hydro Run-of-river and poundage', 'Hydro Pumped Storage']
-
-inertia_df = inertia_df_list[-2]
+add_entoe_2second_line = False
+inertia_contributor_columns = ['Nuclear', 'Fossil Gas', 'Hydro Water Reservoir', 'Hydro Run-of-river and poundage', 'Hydro Pumped Storage','Biomass', 'Waste']
 
 inertia_apr28_df = inertia_df[inertia_df.index.date == pd.Timestamp('2025-04-28').date()]
 
@@ -398,25 +516,27 @@ for column in inertia_contributor_columns:
             marker_color=generation_type_colors[column]
         )
     )
-# Add horizontal line at y=2 with annotation
-fig.add_hline(
-    y=2, 
-    line_dash="dash", 
-    line_color="red"
-)
 
-fig.add_annotation(
-    text="ENTSO-E Suggested Inertia Lower Bound",
-    x=0.5,
-    y=2.1,
-    xref="paper",
-    yref="y",
-    showarrow=False,
-    font=dict(
-        size=12,
-        color="red"
+if add_entoe_2second_line:
+    # Add horizontal line at y=2 with annotation
+    fig.add_hline(
+        y=2, 
+        line_dash="dash", 
+        line_color="red"
     )
-)
+
+    fig.add_annotation(
+        text="ENTSO-E Suggested Inertia Lower Bound",
+        x=0.5,
+        y=2.1,
+        xref="paper",
+        yref="y",
+        showarrow=False,
+        font=dict(
+            size=12,
+            color="red"
+        )
+    )
 
 
 # Update layout
@@ -602,8 +722,59 @@ fig.write_image(figures_dir / "total_inertia_2025.png")
 
 ```
 
-# Inertia in the rest of Europe
+# Table of generation, inertia constants, and inertia at a specific timestamp
 ```{python}
+
+t = pd.Timestamp('2025-04-28 12:30:00')
+
+inertia_t = inertia_df.loc[t]
+
+gen_t = gen_df.loc[t]
+
+print(inertia_t)
+print(gen_t)
+
+# Create a DataFrame with generation, inertia values and constants
+df_t = pd.DataFrame({
+    'Generation (MW)': gen_t,
+    'Inertia (s)': inertia_t
+}).dropna()
+
+# Join with inertia constants
+df_t = df_t.join(inertia_constants.set_index('generation_type')['h_entsoe_sec'], how='left')
+
+
+
+# Generation pct column
+df_t['Generation (%)'] = df_t['Generation (MW)'] / df_t['Generation (MW)'].sum()
+
+# Inertia pct column    
+df_t['Inertia (%)'] = df_t['Inertia (s)'] / df_t['Inertia (s)'].sum()
+
+
+
+# Reorder columns
+df_t = df_t[['Generation (MW)',  'h_entsoe_sec', 'Inertia (s)', 'Generation (%)', 'Inertia (%)']]
+df_t.columns = ['Generation (MW)', 'H_eq (s)', 'Inertia (s)', 'Generation (%)', 'Inertia (%)']
+
+# Sort by Generation (MW) descending
+df_t = df_t.sort_values('Generation (MW)', ascending=False)
+
+# Add a sum row
+df_t.loc['Total'] = df_t.sum(numeric_only=True)
+df_t.loc['Total', 'H_eq (s)'] = np.nan
+
+print("\nWith totals:")
+print(df_t)
+
+# Save to Excel file
+df_t.to_excel(shareable_dir / "results" / "inertia_table_2025_04_28_1230.xlsx")
+
+
+
+
+
+
 
 
 
