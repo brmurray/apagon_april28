@@ -17,7 +17,7 @@ from apagon_april28.constants import pmu_colors, pmu_aliases # from gridradar
 
 # Basic Frequency Plots
 ## Frequency Plot
-def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None, lemur_x = 0.02, lemur_y = 0.02):
+def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None, lemur_x = 0.015, lemur_y = 49.80):
     
     df_to_plot = pmu_df.loc[start_time:end_time]
     
@@ -51,7 +51,7 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
     # Note FCR saturation at +/- 200mhz
     fig.add_annotation(
         x=df_to_plot.index[0] + pd.Timedelta(seconds=0.2),
-        y=49.78,
+        y=49.79,
         text="<i>FCR Saturation</i>",
         showarrow=False,
         font=dict(size=12)
@@ -110,11 +110,11 @@ def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text,
         dict(
             source=Image.open(figures_dir / "lemur_logo_yellow.png"),
             xref="paper",
-            yref="paper",
+            yref="y",
             x=lemur_x,
-            y=lemur_y,
-            sizex=0.2,
-            sizey=0.2,
+            y=max(lemur_y, ymin + 0.01),
+            sizex=0.07,
+            sizey=0.07,
             xanchor="left",
             yanchor="bottom"
         )
@@ -236,7 +236,7 @@ def generic_frequency_plot(series, start_time, end_time, title_text, ymin=None, 
         dict(
             source=Image.open(figures_dir / "lemur_logo_yellow.png"),
             xref="paper",
-            yref="paper",
+            yref="y",
             x=lemur_x,
             y=lemur_y,
             sizex=0.2,
@@ -351,7 +351,7 @@ def plot_N_frequency_comparison(series_to_plot, t_comparison_start=None, t_compa
         dict(
             source=Image.open(figures_dir / "lemur_logo_yellow.png"),
             xref="paper",
-            yref="paper",
+            yref="y",
             x=lemur_x,
             y=lemur_y,
             sizex=0.2,
@@ -491,9 +491,9 @@ def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, titl
         dict(
             source=Image.open(figures_dir / "lemur_logo_yellow.png"),
             xref="paper",
-            yref="paper",
-            x=lemur_x,
-            y=lemur_y,
+            yref="y",
+            x=0.015,
+            y=-1.25,
             sizex=0.2,
             sizey=0.2,
             xanchor="left",
@@ -502,7 +502,7 @@ def create_rocof_comparison_plot(pmu_df, start_time, end_time, pmu_aliases, titl
     )
     
     fig.add_annotation(
-        text="analysis: lemur, uniovi | data: gridradar",
+        text="analysis: murray@uniovi | data: gridradar",
         xref="paper",
         yref="paper",
         x=1,
@@ -650,9 +650,9 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
         dict(
             source=Image.open(figures_dir / "lemur_logo_yellow.png"),
             xref="paper",
-            yref="paper",
+            yref="y",
             x=lemur_x,
-            y=lemur_y,
+            y=-1.25,
             sizex=0.2,
             sizey=0.2,
             xanchor="left",
@@ -661,7 +661,7 @@ def create_rocof_closeup_plot(rocof_df, start_time, end_time, title_text, ymin=-
     )
 
     fig.add_annotation(
-        text="analysis: lemur, uniovi | data: gridradar",
+        text="analysis: murray@uniovi | data: gridradar",
         xref="paper",
         yref="paper",
         x=1,
