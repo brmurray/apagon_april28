@@ -45,6 +45,10 @@ pmu_df_raw = pmu_df_raw.set_index('time')
 # drop any rows where ES_Malaga is NaN
 pmu_df = pmu_df_raw.dropna(subset=['ES_Malaga'])
 
+# Set ES_Malaga to NaN after 12:33:21
+pmu_df.loc[pmu_df.index >= pd.to_datetime('2025-04-28 12:33:21').tz_localize('Europe/Madrid'), 'ES_Malaga'] = np.nan
+
+
 print("First PMU timestamp: ", pmu_df_raw.index.min())
 print("Last PMU timestamp: ", pmu_df_raw.index.max())
 
@@ -152,11 +156,11 @@ reload(plots)
 
 # Plot Parameters
 pmus_to_plot = pmu_aliases
-first_loss = pd.to_datetime('2025-04-28 12:32:57.2').tz_localize('Europe/Madrid')
-second_loss = pd.to_datetime('2025-04-28 12:33:16.5').tz_localize('Europe/Madrid')
-third_loss = pd.to_datetime('2025-04-28 12:33:17.8').tz_localize('Europe/Madrid')
-separation = pd.to_datetime('2025-04-28 12:33:19.4').tz_localize('Europe/Madrid')
-events = [first_loss, second_loss, separation]
+first_loss = pd.to_datetime('2025-04-28 12:32:57.14').tz_localize('Europe/Madrid')
+second_loss = pd.to_datetime('2025-04-28 12:33:16.46').tz_localize('Europe/Madrid')
+third_loss = pd.to_datetime('2025-04-28 12:33:17.78').tz_localize('Europe/Madrid')
+separation = pd.to_datetime('2025-04-28 12:33:19.62').tz_localize('Europe/Madrid')
+events = [first_loss, second_loss, third_loss, separation]
 
 t_loss_start = pd.to_datetime('2025-04-28 12:32:45').tz_localize('Europe/Madrid')
 t_loss_end = pd.to_datetime('2025-04-28 12:33:30').tz_localize('Europe/Madrid')
@@ -166,10 +170,12 @@ fig = plots.create_frequency_plot(
     start_time = t_loss_start,
     end_time = t_loss_end,
     pmu_aliases = pmu_aliases,
-    title_text = "Loss of Generation -> Separation",
-    ymin=49.75,
+    title_text = "Loss of Generation & Synchronism",
+    ymin=49.63,
     ymax=50.05,
-    events = events
+    events = events,
+    lemur_x = 0.015,
+    lemur_y = 49.63
 )
 fig.show()
 fig.write_image(figures_dir / f"frequency_loss_and_separation_{todays_suffix}.png")
