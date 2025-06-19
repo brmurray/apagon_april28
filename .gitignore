@@ -2,7 +2,7 @@
 /data/
 
 # archive
-/archive/
+**/archive/
 
 # Mac OS-specific storage files
 .DS_Store
