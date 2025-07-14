@@ -15,6 +15,9 @@ from apagon_april28.paths import root, data_dir, shareable_dir, notebooks_dir, f
 from apagon_april28.constants import generation_type_colors, generation_type_column_order # from entsoe
 from apagon_april28.constants import pmu_colors, pmu_aliases # from gridradar
 
+# colors
+lemur_yellow = '#FDCD25' #253, 195, 37
+
 # Basic Frequency Plots
 ## Frequency Plot
 def create_frequency_plot(pmu_df, start_time, end_time, pmu_aliases, title_text, ymin=None, ymax=None, events=None, lemur_x = 0.015, lemur_y = 49.80):
@@ -738,7 +741,7 @@ def create_grid_frequency_spectrogram(data, pmu_name, fs=10, window_size=600, ov
         time = np.arange(len(y)) / fs   # Time in seconds
         t_datetime = [data.index[0] + pd.Timedelta(seconds=t) for t in time]
 
-        ax1.plot(time, y+50)
+        ax1.plot(time, y+50, color='black', linewidth=1)
         ax1.grid(True)
         #ax1.set_xlabel('Time (minutes)')
         ax1.set_xlim([0, 20.5])
@@ -749,7 +752,7 @@ def create_grid_frequency_spectrogram(data, pmu_name, fs=10, window_size=600, ov
         
         # Plot 2: Spectrogram, focusing on the range of interest
         ax2 = plt.subplot(gs[1, 0])
-        mask = (f >= 0.05) & (f <= 0.3)
+        mask = (f >= 0.05) & (f <= 0.8)
         pcm = ax2.pcolormesh(t, f[mask], 10 * np.log10(Sxx[mask]), 
                              shading='gouraud', cmap='viridis')
         ax2.set_ylabel('Frequency (Hz)')
@@ -762,8 +765,9 @@ def create_grid_frequency_spectrogram(data, pmu_name, fs=10, window_size=600, ov
         # Colorbar in its own axes
         cax = plt.subplot(gs[1, 1])
         plt.colorbar(pcm, cax=cax, label='Power/Frequency (dB/Hz)')
-        
+                
         plt.tight_layout()
+        
         #plt.show()
     
     return {
